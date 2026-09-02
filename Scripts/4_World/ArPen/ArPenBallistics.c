@@ -83,7 +83,11 @@ class ArPenBallistics
         healthFactor = armorData.MinHealthFactor + ((1.0 - armorData.MinHealthFactor) * healthFactor);
         result.EffectiveKrupp = result.CurrentKrupp * healthFactor;
         if (armorData.MaterialType == "Ceramic")
-            result.EffectiveKrupp = result.EffectiveKrupp * result.PreviousTileIntegrity;
+        {
+            // Local ceramic residual strength is anchored directly to the
+            // tile curve, preserving I2 / I1 = 1/3 exactly.
+            result.EffectiveKrupp = armorData.BaseKrupp * result.PreviousTileIntegrity;
+        }
         if (result.EffectiveKrupp <= 0.0 || ammoData.CaliberMM <= 0.0)
             return result;
 
@@ -123,6 +127,8 @@ class ArPenBallistics
     protected static void CalculateMaterialResponse(ArPenHitResult result, ArPenArmorData armorData)
     {
         result.PlateThresholdJ = armorData.ArealDensityKGPerM2 * armorData.ResistanceConstant;
+        if (armorData.MaterialType == "Ceramic")
+            result.PlateThresholdJ = result.PlateThresholdJ * result.PreviousTileIntegrity;
         if (armorData.IsHelmet)
             result.PlateThresholdJ = result.PlateThresholdJ / Math.Clamp(armorData.HelmetCurvatureFactor, 0.1, 1.0);
 
