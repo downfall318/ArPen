@@ -18,6 +18,7 @@ class ArPenArmorData
     float GlobalCouplingLow;
     float GlobalCouplingSpread;
     float MultiHitSpread;
+    string MaterialID;
     string MaterialType;
     float MaterialDensityGCM3;
     float BrinellHardness;
@@ -29,6 +30,10 @@ class ArPenArmorData
     float HelmetEnergyTransmission;
     float HelmetStoppingDistanceMM;
     float HelmetTraumaLimitG;
+    float SurfaceAreaCM2;
+    float TileSurfaceAreaCM2;
+    float FirstHitResidualIntegrity;
+    float SubsequentHitIntegrityRatio;
 };
 
 class ArPenAmmoData
@@ -82,6 +87,7 @@ class ArPenConfig
         data.GlobalCouplingLow = ReadFloat(path, "globalCouplingLow", 0.05);
         data.GlobalCouplingSpread = ReadFloat(path, "globalCouplingSpread", 0.25);
         data.MultiHitSpread = ReadFloat(path, "multiHitSpread", 1.0);
+        data.MaterialID = ReadString(path, "materialID", "silicon_carbide");
         data.MaterialType = ReadString(path, "materialType", "Ceramic");
         data.MaterialDensityGCM3 = ReadFloat(path, "materialDensityGCM3", 3.16);
         data.BrinellHardness = ReadFloat(path, "brinellHardness", 0.0);
@@ -93,6 +99,24 @@ class ArPenConfig
         data.HelmetEnergyTransmission = ReadFloat(path, "helmetEnergyTransmission", 0.05);
         data.HelmetStoppingDistanceMM = ReadFloat(path, "helmetStoppingDistanceMM", 20.0);
         data.HelmetTraumaLimitG = ReadFloat(path, "helmetTraumaLimitG", 400.0);
+        data.SurfaceAreaCM2 = ReadFloat(path, "surfaceAreaCM2", 2500.0);
+        data.TileSurfaceAreaCM2 = ReadFloat(path, "tileSurfaceAreaCM2", 625.0);
+
+        ArPenMaterialData material;
+        if (ArPenMaterialLibrary.Get(data.MaterialID, material))
+        {
+            data.MaterialType = material.Family;
+            data.MaterialDensityGCM3 = material.DensityGCM3;
+            data.AcousticImpedance = material.AcousticImpedance;
+            data.BrinellHardness = material.BrinellHardness;
+            data.PlateToughnessJ = material.PlateToughnessJ;
+            data.BaseCrackRadiusMM = material.BaseCrackRadiusMM;
+            data.GlobalCouplingLow = material.GlobalCouplingLow;
+            data.GlobalCouplingSpread = material.GlobalCouplingSpread;
+            data.MultiHitSpread = material.MultiHitSpread;
+            data.FirstHitResidualIntegrity = material.FirstHitResidualIntegrity;
+            data.SubsequentHitIntegrityRatio = material.SubsequentHitIntegrityRatio;
+        }
         return data.Enabled && data.BaseKrupp > 0.0 && data.ThicknessMM > 0.0;
     }
 
