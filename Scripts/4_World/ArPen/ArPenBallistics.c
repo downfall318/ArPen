@@ -87,7 +87,7 @@ class ArPenBallistics
         healthFactor = armorData.MinHealthFactor + ((1.0 - armorData.MinHealthFactor) * healthFactor);
         result.EffectiveKrupp = result.CurrentKrupp * healthFactor;
         if (armorData.UseSimpleHealthScaling)
-            result.EffectiveKrupp = armorData.BaseKrupp * result.ArmorHealth01;
+            result.EffectiveKrupp = result.CurrentKrupp;
         if (armorData.MaterialType == "Ceramic" && !armorData.UseSimpleHealthScaling)
         {
             // Local ceramic residual strength is anchored directly to the

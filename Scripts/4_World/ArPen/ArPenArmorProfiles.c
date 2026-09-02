@@ -4,8 +4,12 @@ class ArPenArmorProfile
     bool Enabled = true;
     // Soft armor stays in DayZ's native GlobalArmor damage path.
     bool IsSoftArmor;
-    // Unconverted armor uses base Krupp scaled directly by item health.
+    // Unconverted armor keeps base/max Krupp. Its armor-health pool is the
+    // schema Health.damage multiplier times GlobalHealth hitpoints.
     bool UseSimpleHealthScaling = true;
+    string ArmorLevel = "Unrated";
+    float ArmorSchemaHealthDamageMultiplier = 1.0;
+    float ArmorSchemaHealthCapacity = 100.0;
     float Krupp = 350.0;
     float ArmorHealth = 100.0;
     float ThicknessMM = 4.0;
@@ -43,7 +47,7 @@ class ArPenArmorProfile
 
 class ArPenArmorProfileFile
 {
-    int Version = 8;
+    int Version = 10;
     ref array<ref ArPenArmorProfile> Profiles;
 
     void ArPenArmorProfileFile()
@@ -81,7 +85,8 @@ class ArPenArmorProfiles
             s_File.Profiles = new array<ref ArPenArmorProfile>;
 
         bool migrated = ApplyVersion2TestValues();
-        int added = EnrollLoadedArmorClasses();
+        int added = AddVanillaTestProfiles();
+        added += EnrollLoadedArmorClasses();
         if (!FileExist(FILE_PATH) || added > 0 || migrated)
             Save();
 
@@ -101,6 +106,9 @@ class ArPenArmorProfiles
             data.Enabled = profile.Enabled;
             data.IsSoftArmor = profile.IsSoftArmor;
             data.UseSimpleHealthScaling = profile.UseSimpleHealthScaling;
+            data.ArmorLevel = profile.ArmorLevel;
+            data.ArmorSchemaHealthDamageMultiplier = profile.ArmorSchemaHealthDamageMultiplier;
+            data.ArmorSchemaHealthCapacity = profile.ArmorSchemaHealthCapacity;
             data.BaseKrupp = profile.Krupp;
             data.BaseArmorHealth = profile.ArmorHealth;
             data.ThicknessMM = profile.ThicknessMM;
@@ -184,6 +192,7 @@ class ArPenArmorProfiles
             ArPenArmorProfile profile = new ArPenArmorProfile();
             profile.ArmorClass = className;
             ApplyClassDefaults(profile);
+            ApplyVanillaTestDefaults(profile);
             s_File.Profiles.Insert(profile);
             added++;
         }
@@ -198,6 +207,9 @@ class ArPenArmorProfiles
 
         profile.IsSoftArmor = IsSoftArmorClass(profile.ArmorClass);
         profile.UseSimpleHealthScaling = true;
+        profile.ArmorLevel = "Unrated";
+        profile.ArmorSchemaHealthDamageMultiplier = ReadArmorSchemaHealthDamageMultiplier(profile.ArmorClass);
+        profile.ArmorSchemaHealthCapacity = ReadArmorSchemaHealthCapacity(profile.ArmorClass, profile.ArmorSchemaHealthDamageMultiplier);
         if (profile.IsSoftArmor)
         {
             profile.MaterialID = "kevlar";
@@ -274,24 +286,116 @@ class ArPenArmorProfiles
                 profile.BrinellHardness = 600.0;
             }
         }
+
+        // Generic hard armor keeps full base/max Krupp. The vanilla armor
+        // reduction determines its custom health pool instead of Krupp.
+        if (profile.UseSimpleHealthScaling)
+            profile.ArmorHealth = profile.ArmorSchemaHealthCapacity;
     }
 
     protected static bool ApplyVersion2TestValues()
     {
-        if (s_File.Version >= 8)
+        if (s_File.Version >= 10)
             return false;
 
         foreach (ArPenArmorProfile profile : s_File.Profiles)
+        {
             ApplyClassDefaults(profile);
+            ApplyVanillaTestDefaults(profile);
+        }
 
-        s_File.Version = 8;
-        Print("[ArPen] Migrated armor profiles to soft-armor and simple-health model v8");
+        s_File.Version = 10;
+        Print("[ArPen] Migrated armor profiles to schema-derived armor health model v10");
         return true;
+    }
+
+    protected static int AddVanillaTestProfiles()
+    {
+        int added;
+        added += AddVanillaArmor("BallisticVest_ColorBase", "III", 2000.0, 800.0, 24.0, "silicon_carbide", "Ceramic");
+        added += AddVanillaArmor("BallisticVest_Black", "III", 2000.0, 800.0, 24.0, "silicon_carbide", "Ceramic");
+        added += AddVanillaArmor("BallisticVest_Green", "III", 2000.0, 800.0, 24.0, "silicon_carbide", "Ceramic");
+        added += AddVanillaArmor("BallisticVest_Olive", "III", 2000.0, 800.0, 24.0, "silicon_carbide", "Ceramic");
+        added += AddVanillaArmor("PlateCarrierVest", "IV", 2400.0, 900.0, 25.0, "silicon_carbide", "Ceramic");
+        added += AddVanillaArmor("BallisticHelmet_ColorBase", "IIIA", 3600.0, 100.0, 10.16, "uhmwpe", "Polymer");
+        return added;
+    }
+
+    protected static int AddVanillaArmor(string armorClass, string armorLevel, float krupp, float armorHealth, float thicknessMM, string materialID, string materialType)
+    {
+        if (!GetGame().ConfigIsExisting("CfgVehicles " + armorClass) || FindProfile(armorClass))
+            return 0;
+
+        ArPenArmorProfile profile = new ArPenArmorProfile();
+        profile.ArmorClass = armorClass;
+        ApplyClassDefaults(profile);
+        profile.IsSoftArmor = false;
+        profile.UseSimpleHealthScaling = false;
+        profile.ArmorLevel = armorLevel;
+        profile.Krupp = krupp;
+        profile.ArmorHealth = armorHealth;
+        profile.ThicknessMM = thicknessMM;
+        profile.MaterialID = materialID;
+        profile.MaterialType = materialType;
+        s_File.Profiles.Insert(profile);
+        return 1;
+    }
+
+    protected static float ReadArmorSchemaHealthDamageMultiplier(string armorClass)
+    {
+        string healthPath = "CfgVehicles " + armorClass + " DamageSystem GlobalArmor Projectile Health damage";
+        if (!GetGame().ConfigIsExisting(healthPath))
+            return 1.0;
+        return Math.Clamp(GetGame().ConfigGetFloat(healthPath), 0.0, 1.0);
+    }
+
+    protected static float ReadArmorSchemaHealthCapacity(string armorClass, float damageMultiplier)
+    {
+        string hitpointsPath = "CfgVehicles " + armorClass + " DamageSystem GlobalHealth Health hitpoints";
+        float healthCapacity = 100.0;
+        if (GetGame().ConfigIsExisting(hitpointsPath))
+            healthCapacity = GetGame().ConfigGetFloat(hitpointsPath);
+        return Math.Max(healthCapacity * Math.Clamp(damageMultiplier, 0.0, 1.0), 1.0);
     }
 
     protected static bool IsSoftArmorClass(string armorClass)
     {
         return armorClass.Contains("Kevlar") || armorClass.Contains("SoftArmor") || armorClass.Contains("PressVest") || armorClass.Contains("PoliceVest");
+    }
+
+    protected static void ApplyVanillaTestDefaults(ArPenArmorProfile profile)
+    {
+        if (!profile)
+            return;
+
+        if (profile.ArmorClass.Contains("BallisticVest"))
+        {
+            profile.IsSoftArmor = false;
+            profile.UseSimpleHealthScaling = false;
+            profile.ArmorLevel = "III";
+            profile.Krupp = 2000.0;
+            profile.ArmorHealth = 800.0;
+            profile.ThicknessMM = 24.0;
+            profile.MaterialID = "silicon_carbide";
+            profile.MaterialType = "Ceramic";
+        }
+        else if (profile.ArmorClass.Contains("PlateCarrierVest"))
+        {
+            profile.IsSoftArmor = false;
+            profile.UseSimpleHealthScaling = false;
+            profile.ArmorLevel = "IV";
+            profile.Krupp = 2400.0;
+            profile.ArmorHealth = 900.0;
+            profile.ThicknessMM = 25.0;
+            profile.MaterialID = "silicon_carbide";
+            profile.MaterialType = "Ceramic";
+        }
+        else if (profile.ArmorClass.Contains("BallisticHelmet"))
+        {
+            profile.IsSoftArmor = false;
+            profile.UseSimpleHealthScaling = false;
+            profile.ArmorLevel = "IIIA";
+        }
     }
 
     protected static bool HasArmorSlot(string path)
