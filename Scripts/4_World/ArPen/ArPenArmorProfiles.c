@@ -47,7 +47,7 @@ class ArPenArmorProfile
 
 class ArPenArmorProfileFile
 {
-    int Version = 11;
+    int Version = 12;
     ref array<ref ArPenArmorProfile> Profiles;
 
     void ArPenArmorProfileFile()
@@ -85,12 +85,13 @@ class ArPenArmorProfiles
             s_File.Profiles = new array<ref ArPenArmorProfile>;
 
         bool migrated = ApplyVersion2TestValues();
+        int removed = RemoveUnsupportedProfiles();
         int added = AddVanillaTestProfiles();
         added += EnrollLoadedArmorClasses();
-        if (!FileExist(FILE_PATH) || added > 0 || migrated)
+        if (!FileExist(FILE_PATH) || added > 0 || removed > 0 || migrated)
             Save();
 
-        Print("[ArPen] Loaded " + s_File.Profiles.Count().ToString() + " armor profiles; added " + added.ToString());
+        Print("[ArPen] Loaded " + s_File.Profiles.Count().ToString() + " armor profiles; added " + added.ToString() + "; removed " + removed.ToString());
     }
 
     static bool GetArmorData(string armorClass, out ArPenArmorData data)
@@ -186,6 +187,8 @@ class ArPenArmorProfiles
                 continue;
             if (!HasArmorSlot(path))
                 continue;
+            if (!IsSupportedHardBallisticClass(className))
+                continue;
             if (FindProfile(className))
                 continue;
 
@@ -218,9 +221,9 @@ class ArPenArmorProfiles
         }
 
         // Unity test helmet: 0.01016 m = 10.16 mm.
-        if (profile.ArmorClass.Contains("BallisticHelmet"))
+        if (IsModernBallisticHelmet(profile.ArmorClass))
         {
-            profile.Krupp = 3600.0;
+            profile.Krupp = 1500.0;
             profile.ArmorHealth = 100.0;
             profile.ThicknessMM = 10.16;
             profile.MinHealthFactor = 0.35;
@@ -295,7 +298,7 @@ class ArPenArmorProfiles
 
     protected static bool ApplyVersion2TestValues()
     {
-        if (s_File.Version >= 11)
+        if (s_File.Version >= 12)
             return false;
 
         foreach (ArPenArmorProfile profile : s_File.Profiles)
@@ -304,8 +307,8 @@ class ArPenArmorProfiles
             ApplyVanillaTestDefaults(profile);
         }
 
-        s_File.Version = 11;
-        Print("[ArPen] Migrated vanilla Plate Carrier test profiles to Level III v11");
+        s_File.Version = 12;
+        Print("[ArPen] Migrated profiles to hard-ballistic-only enrollment v12");
         return true;
     }
 
@@ -313,7 +316,10 @@ class ArPenArmorProfiles
     {
         int added;
         added += AddVanillaArmor("PlateCarrierVest", "III", 2000.0, 800.0, 24.0, "silicon_carbide", "Ceramic");
-        added += AddVanillaArmor("BallisticHelmet_ColorBase", "IIIA", 3600.0, 100.0, 10.16, "uhmwpe", "Polymer");
+        added += AddVanillaArmor("BallisticHelmet_ColorBase", "IIIA", 1500.0, 100.0, 10.16, "uhmwpe", "Polymer");
+        added += AddVanillaArmor("GorkaHelmet", "IIIA", 1500.0, 100.0, 10.16, "uhmwpe", "Polymer");
+        added += AddVanillaArmor("Mich2001Helmet", "IIIA", 1500.0, 100.0, 10.16, "uhmwpe", "Polymer");
+        added += AddVanillaArmor("Ssh68Helmet", "Fragment", 6000.0, 85.0, 1.5, "ar500_steel", "Steel");
         return added;
     }
 
@@ -359,6 +365,35 @@ class ArPenArmorProfiles
         return armorClass.Contains("Kevlar") || armorClass.Contains("SoftArmor") || armorClass.Contains("PressVest") || armorClass.Contains("PoliceVest");
     }
 
+    static bool IsSupportedHardBallisticClass(string armorClass)
+    {
+        if (IsSoftArmorClass(armorClass))
+            return false;
+        if (armorClass.Contains("PlateCarrierVest") || IsModernBallisticHelmet(armorClass) || armorClass.Contains("Ssh68Helmet"))
+            return true;
+        return armorClass.Contains("AR500") || armorClass.Contains("AR600") || armorClass.Contains("SteelPlate") || armorClass.Contains("CeramicPlate") || armorClass.Contains("HardArmor") || armorClass.Contains("ArmorPlate");
+    }
+
+    protected static bool IsModernBallisticHelmet(string armorClass)
+    {
+        return armorClass.Contains("BallisticHelmet") || armorClass.Contains("GorkaHelmet") || armorClass.Contains("Mich2001Helmet");
+    }
+
+    protected static int RemoveUnsupportedProfiles()
+    {
+        int removed;
+        for (int i = s_File.Profiles.Count() - 1; i >= 0; i--)
+        {
+            ArPenArmorProfile profile = s_File.Profiles[i];
+            if (!profile || !IsSupportedHardBallisticClass(profile.ArmorClass))
+            {
+                s_File.Profiles.Remove(i);
+                removed++;
+            }
+        }
+        return removed;
+    }
+
     protected static void ApplyVanillaTestDefaults(ArPenArmorProfile profile)
     {
         if (!profile)
@@ -375,11 +410,29 @@ class ArPenArmorProfiles
             profile.MaterialID = "silicon_carbide";
             profile.MaterialType = "Ceramic";
         }
-        else if (profile.ArmorClass.Contains("BallisticHelmet"))
+        else if (IsModernBallisticHelmet(profile.ArmorClass))
         {
             profile.IsSoftArmor = false;
             profile.UseSimpleHealthScaling = false;
             profile.ArmorLevel = "IIIA";
+            profile.Krupp = 1500.0;
+            profile.ArmorHealth = 100.0;
+            profile.ThicknessMM = 10.16;
+            profile.MaterialID = "uhmwpe";
+            profile.MaterialType = "Polymer";
+            profile.IsHelmet = true;
+        }
+        else if (profile.ArmorClass.Contains("Ssh68Helmet"))
+        {
+            profile.IsSoftArmor = false;
+            profile.UseSimpleHealthScaling = false;
+            profile.ArmorLevel = "Fragment";
+            profile.Krupp = 6000.0;
+            profile.ArmorHealth = 85.0;
+            profile.ThicknessMM = 1.5;
+            profile.MaterialID = "ar500_steel";
+            profile.MaterialType = "Steel";
+            profile.IsHelmet = true;
         }
     }
 
