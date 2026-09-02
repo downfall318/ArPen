@@ -14,6 +14,7 @@ class ArPenHitResult
     float ArmorDamage;
     float ImpactEnergyJ;
     float PlateThresholdJ;
+    float RatedPlateThresholdJ;
     float Brittleness;
     float LocalDamage;
     float CrackRadiusMM;
@@ -32,6 +33,9 @@ class ArPenHitResult
     float HealthPerSurfaceArea;
     float IntegrityHealthLoss;
     float IntegrityKruppLoss;
+    float EnergyFraction;
+    float CrackDamageScale;
+    float DamageFractionOfRemaining;
     bool Penetrated;
     float DamageMultiplier;
 };
@@ -126,7 +130,8 @@ class ArPenBallistics
 
     protected static void CalculateMaterialResponse(ArPenHitResult result, ArPenArmorData armorData)
     {
-        result.PlateThresholdJ = armorData.ArealDensityKGPerM2 * armorData.ResistanceConstant;
+        result.RatedPlateThresholdJ = armorData.ArealDensityKGPerM2 * armorData.ResistanceConstant;
+        result.PlateThresholdJ = result.RatedPlateThresholdJ;
         if (armorData.MaterialType == "Ceramic")
             result.PlateThresholdJ = result.PlateThresholdJ * result.PreviousTileIntegrity;
         if (armorData.IsHelmet)
@@ -185,12 +190,33 @@ class ArPenBallistics
     protected static void CalculateCeramicIntegrityLoss(ArPenHitResult result, ArPenArmorData armorData)
     {
         float firstHitIntegrity = Math.Clamp(armorData.FirstHitResidualIntegrity, 0.0, 1.0);
-        float decayRatio = Math.Clamp(armorData.SubsequentHitIntegrityRatio, 0.0, 1.0);
-        result.ResultingTileIntegrity = firstHitIntegrity;
-        if (result.MaterialHitCount > 1)
-            result.ResultingTileIntegrity = firstHitIntegrity * Math.Pow(decayRatio, result.MaterialHitCount - 1);
+        float secondHitResidualRatio = Math.Clamp(armorData.SubsequentHitIntegrityRatio, 0.0, 1.0);
+        float exponent = Math.Max(armorData.CeramicDamageExponent, 1.0);
+        float crackFloor = Math.Clamp(armorData.CrackInitiationEnergyFraction, 0.01, 0.95);
+        float subfloorScale = Math.Clamp(armorData.SubfloorDamageScale, 0.0, 1.0);
 
-        result.ResultingTileIntegrity = Math.Min(result.ResultingTileIntegrity, result.PreviousTileIntegrity);
+        // Normalize against the intact rated threshold, not the already-damaged
+        // tile threshold. Range loss is naturally included in ImpactEnergyJ.
+        result.EnergyFraction = result.ImpactEnergyJ / Math.Max(result.RatedPlateThresholdJ, 1.0);
+
+        if (result.EnergyFraction <= crackFloor)
+        {
+            float belowFloor = Math.Clamp(result.EnergyFraction / crackFloor, 0.0, 1.0);
+            result.CrackDamageScale = subfloorScale * Math.Pow(belowFloor, exponent);
+        }
+        else
+        {
+            float aboveFloor = Math.Clamp((result.EnergyFraction - crackFloor) / (1.0 - crackFloor), 0.0, 1.0);
+            result.CrackDamageScale = subfloorScale + ((1.0 - subfloorScale) * Math.Pow(aboveFloor, exponent));
+        }
+
+        float firstHitDamage = 1.0 - firstHitIntegrity;
+        float establishedCrackDamage = 1.0 - secondHitResidualRatio;
+        float fractureNetwork = Math.Clamp((1.0 - result.PreviousTileIntegrity) / Math.Max(firstHitDamage, 0.001), 0.0, 1.0);
+        float calibratedRatedDamage = firstHitDamage + ((establishedCrackDamage - firstHitDamage) * fractureNetwork);
+
+        result.DamageFractionOfRemaining = Math.Clamp(calibratedRatedDamage * result.CrackDamageScale, 0.0, 1.0);
+        result.ResultingTileIntegrity = result.PreviousTileIntegrity * (1.0 - result.DamageFractionOfRemaining);
         result.AffectedSurfaceAreaCM2 = Math.Min(armorData.TileSurfaceAreaCM2, armorData.SurfaceAreaCM2);
         result.HealthPerSurfaceArea = result.BaseArmorHealth / Math.Max(armorData.SurfaceAreaCM2, 1.0);
 

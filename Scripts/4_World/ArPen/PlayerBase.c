@@ -59,6 +59,8 @@ modded class PlayerBase
         Print("[ArPen] ========================================");
         Print("[ArPen] DAMAGE EVENT");
         Print("[ArPen] Ammo = " + ammo);
+        Print("[ArPen] ThreatLevel = " + ammoData.ThreatLevel);
+        Print("[ArPen] ReferenceThreatEnergyJ = " + ammoData.ReferenceThreatEnergyJ.ToString());
         Print("[ArPen] Zone = " + dmgZone);
         Print("[ArPen] Component = " + component.ToString());
         Print("[ArPen] ComponentZone = " + componentZone);
@@ -120,6 +122,7 @@ modded class PlayerBase
             Print("[ArPen] ArmorDamage = " + hitResult.ArmorDamage.ToString());
             Print("[ArPen] ImpactEnergyJ = " + hitResult.ImpactEnergyJ.ToString());
             Print("[ArPen] PlateThresholdJ = " + hitResult.PlateThresholdJ.ToString());
+            Print("[ArPen] RatedPlateThresholdJ = " + hitResult.RatedPlateThresholdJ.ToString());
             Print("[ArPen] Brittleness = " + hitResult.Brittleness.ToString());
             Print("[ArPen] LocalDamage = " + hitResult.LocalDamage.ToString());
             Print("[ArPen] CrackRadiusMM = " + hitResult.CrackRadiusMM.ToString());
@@ -139,6 +142,9 @@ modded class PlayerBase
             Print("[ArPen] HealthPerSurfaceArea = " + hitResult.HealthPerSurfaceArea.ToString());
             Print("[ArPen] IntegrityHealthLoss = " + hitResult.IntegrityHealthLoss.ToString());
             Print("[ArPen] IntegrityKruppLoss = " + hitResult.IntegrityKruppLoss.ToString());
+            Print("[ArPen] EnergyFraction = " + hitResult.EnergyFraction.ToString());
+            Print("[ArPen] CrackDamageScale = " + hitResult.CrackDamageScale.ToString());
+            Print("[ArPen] DamageFractionOfRemaining = " + hitResult.DamageFractionOfRemaining.ToString());
             Print("[ArPen] Penetrated = " + hitResult.Penetrated.ToString());
             Print("[ArPen] DamageMultiplier = " + hitResult.DamageMultiplier.ToString());
         }
@@ -188,7 +194,7 @@ modded class PlayerBase
                 penetrationStatus = "STOPPED";
         }
 
-        string message = "Ammo: " + ammo + " | Zone: " + dmgZone;
+        string message = "Ammo: " + ammo + " [" + ammoData.ThreatLevel + "] | Zone: " + dmgZone;
         message = message + "\nStatus: " + penetrationStatus;
         message = message + "\nV: " + hitResult.ImpactVelocity.ToString() + " -> " + hitResult.ExitVelocity.ToString() + " m/s";
 
@@ -214,6 +220,7 @@ modded class PlayerBase
                 {
                     message = message + "\nTile hit: " + hitResult.MaterialHitCount.ToString();
                     message = message + "\nTile integrity: " + hitResult.PreviousTileIntegrity.ToString() + " -> " + hitResult.ResultingTileIntegrity.ToString();
+                    message = message + "\nThreat fraction/curve: " + hitResult.EnergyFraction.ToString() + " / " + hitResult.CrackDamageScale.ToString();
                     message = message + "\nArea loss H/K: " + hitResult.IntegrityHealthLoss.ToString() + " / " + hitResult.IntegrityKruppLoss.ToString();
                 }
                 if (armorData.MaterialType == "Steel")

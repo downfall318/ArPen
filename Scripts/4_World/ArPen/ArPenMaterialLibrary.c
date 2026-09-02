@@ -13,6 +13,9 @@ class ArPenMaterialData
     float MultiHitSpread;
     float FirstHitResidualIntegrity;
     float SubsequentHitIntegrityRatio;
+    float CeramicDamageExponent;
+    float CrackInitiationEnergyFraction;
+    float SubfloorDamageScale;
 };
 
 class ArPenMaterialProfile
@@ -30,6 +33,9 @@ class ArPenMaterialProfile
     float MultiHitSpread = 1.0;
     float FirstHitResidualIntegrity = 0.75;
     float SubsequentHitIntegrityRatio = 0.333333;
+    float CeramicDamageExponent = 1.75;
+    float CrackInitiationEnergyFraction = 0.18;
+    float SubfloorDamageScale = 0.02;
 };
 
 class ArPenMaterialProfileFile
@@ -114,6 +120,9 @@ class ArPenMaterialLibrary
             data.MultiHitSpread = material.MultiHitSpread;
             data.FirstHitResidualIntegrity = material.FirstHitResidualIntegrity;
             data.SubsequentHitIntegrityRatio = material.SubsequentHitIntegrityRatio;
+            data.CeramicDamageExponent = material.CeramicDamageExponent;
+            data.CrackInitiationEnergyFraction = material.CrackInitiationEnergyFraction;
+            data.SubfloorDamageScale = material.SubfloorDamageScale;
             return true;
         }
         return false;
@@ -144,6 +153,9 @@ class ArPenMaterialLibrary
             material.MultiHitSpread = 0.05;
             material.FirstHitResidualIntegrity = 1.0;
             material.SubsequentHitIntegrityRatio = 1.0;
+            material.CeramicDamageExponent = 1.0;
+            material.CrackInitiationEnergyFraction = 0.0;
+            material.SubfloorDamageScale = 1.0;
         }
 
         s_File.Materials.Insert(material);
