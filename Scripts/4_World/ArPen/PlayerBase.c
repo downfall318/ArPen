@@ -224,6 +224,8 @@ modded class PlayerBase
         if (enrolledArmor)
         {
             message = message + "\nArmor: " + armor.GetType();
+            message = message + "\nArmor level: " + armorData.ArmorLevel;
+            message = message + "\nSchema protection: " + armorData.ArmorSchemaHealthProtection.ToString();
             message = message + "\nMaterial: " + armorData.MaterialID + " (" + armorData.MaterialType + ")";
             message = message + "\nHardness: " + hitResult.CurrentKrupp.ToString() + " -> " + postKrupp.ToString();
             message = message + "\nEffective K: " + hitResult.EffectiveKrupp.ToString();

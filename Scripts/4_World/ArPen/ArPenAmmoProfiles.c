@@ -21,7 +21,7 @@ class ArPenAmmoProfile
 
 class ArPenAmmoProfileFile
 {
-    int Version = 2;
+    int Version = 3;
     ref array<ref ArPenAmmoProfile> Profiles;
     void ArPenAmmoProfileFile() { Profiles = new array<ref ArPenAmmoProfile>; }
 };
@@ -101,6 +101,19 @@ class ArPenAmmoProfiles
         added += AddProfile("Bullet_50AE", ".50 AE", 450.0, 0.019, 0.12, 12.71, false, 50.0, 170.0, 1.0);
         added += AddProfile("Bullet_762x39", "7.62x39mm FMJ", 715.0, 0.008, 0.295, 7.62, false, 55.0, 165.0, 1.0);
         added += AddProfile("Bullet_22", ".22 LR", 370.0, 0.0026, 0.13, 5.7, false, 12.0, 140.0, 0.35);
+        added += AddProfile("Bullet_380", ".380 ACP", 300.0, 0.00615, 0.16, 9.0, false, 20.0, 150.0, 0.70);
+        added += AddProfile("Bullet_9x19", "9x19mm", 375.0, 0.0080, 0.16, 9.01, false, 26.0, 159.0, 0.80);
+        added += AddProfile("Bullet_45ACP", ".45 ACP", 260.0, 0.0149, 0.20, 11.43, false, 34.0, 158.0, 0.80);
+        added += AddProfile("Bullet_357", ".357 Magnum", 440.0, 0.0102, 0.20, 9.07, false, 45.0, 164.0, 0.95);
+        added += AddProfile("Bullet_545x39", "5.45x39mm", 880.0, 0.00343, 0.30, 5.62, false, 42.0, 160.0, 1.0);
+        added += AddProfile("Bullet_545x39_Tracer", "5.45x39mm Tracer", 880.0, 0.00343, 0.30, 5.62, true, 42.0, 160.0, 1.0);
+        added += AddProfile("Bullet_762x54", "7.62x54mmR", 830.0, 0.0096, 0.40, 7.92, false, 70.0, 170.0, 1.10);
+        added += AddProfile("Bullet_762x54_Tracer", "7.62x54mmR Tracer", 830.0, 0.0096, 0.40, 7.92, true, 70.0, 170.0, 1.10);
+        added += AddProfile("Bullet_9x39", "9x39mm", 295.0, 0.0160, 0.31, 9.25, false, 55.0, 155.0, 1.10);
+        added += AddProfile("Bullet_9x39AP", "9x39mm AP", 310.0, 0.0160, 0.31, 9.25, false, 58.0, 155.0, 1.30);
+        added += AddProfile("Bullet_12GaugePellets", "12 Gauge Buckshot", 400.0, 0.0320, 0.06, 18.5, false, 34.0, 165.0, 0.65);
+        added += AddProfile("Bullet_12GaugeSlug", "12 Gauge Slug", 450.0, 0.0280, 0.07, 18.5, false, 110.0, 170.0, 0.90);
+        added += AddProfile("Bullet_12GaugeRubberSlug", "12 Gauge Rubber Slug", 220.0, 0.0060, 0.05, 18.5, false, 10.0, 145.0, 0.20);
         return added;
     }
 
@@ -129,14 +142,14 @@ class ArPenAmmoProfiles
 
     protected static bool ApplyThreatMetadata()
     {
-        if (s_File.Version >= 2)
+        if (s_File.Version >= 3)
             return false;
 
         foreach (ArPenAmmoProfile profile : s_File.Profiles)
             AssignThreatMetadata(profile);
 
-        s_File.Version = 2;
-        Print("[ArPen] Migrated ammunition profiles to threat metadata v2");
+        s_File.Version = 3;
+        Print("[ArPen] Migrated vanilla ammunition profiles to threat metadata v3");
         return true;
     }
 
@@ -150,11 +163,19 @@ class ArPenAmmoProfiles
 
         if (profile.AmmoClass == "Bullet_22")
             profile.ThreatLevel = "Sub-IIA";
+        else if (profile.AmmoClass.Contains("RubberSlug"))
+            profile.ThreatLevel = "Sub-IIA";
+        else if (profile.AmmoClass.Contains("380"))
+            profile.ThreatLevel = "IIA";
+        else if (profile.AmmoClass.Contains("9x19") || profile.AmmoClass.Contains("45ACP"))
+            profile.ThreatLevel = "II";
+        else if (profile.AmmoClass.Contains("357") || profile.AmmoClass.Contains("12Gauge"))
+            profile.ThreatLevel = "IIIA";
         else if (profile.AmmoClass.Contains("50AE"))
             profile.ThreatLevel = "IIIA";
         else if (profile.AmmoClass.Contains("556x45_AP") || profile.AmmoClass.Contains("308Win_AP"))
             profile.ThreatLevel = "IV";
-        else if (profile.AmmoClass.Contains("556x45") || profile.AmmoClass.Contains("308Win") || profile.AmmoClass.Contains("762x39"))
+        else if (profile.AmmoClass.Contains("556x45") || profile.AmmoClass.Contains("545x39") || profile.AmmoClass.Contains("308Win") || profile.AmmoClass.Contains("762x39") || profile.AmmoClass.Contains("762x54") || profile.AmmoClass.Contains("9x39"))
             profile.ThreatLevel = "III";
     }
 
