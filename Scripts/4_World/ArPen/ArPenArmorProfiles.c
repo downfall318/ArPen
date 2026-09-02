@@ -4,11 +4,12 @@ class ArPenArmorProfile
     bool Enabled = true;
     // Soft armor stays in DayZ's native GlobalArmor damage path.
     bool IsSoftArmor;
-    // Unconverted armor uses base Krupp scaled by the protection percentage
-    // in DamageSystem/GlobalArmor/Projectile/Health.
+    // Unconverted armor keeps base/max Krupp. Its armor-health pool is the
+    // schema Health.damage multiplier times GlobalHealth hitpoints.
     bool UseSimpleHealthScaling = true;
     string ArmorLevel = "Unrated";
-    float ArmorSchemaHealthProtection = 1.0;
+    float ArmorSchemaHealthDamageMultiplier = 1.0;
+    float ArmorSchemaHealthCapacity = 100.0;
     float Krupp = 350.0;
     float ArmorHealth = 100.0;
     float ThicknessMM = 4.0;
@@ -46,7 +47,7 @@ class ArPenArmorProfile
 
 class ArPenArmorProfileFile
 {
-    int Version = 9;
+    int Version = 10;
     ref array<ref ArPenArmorProfile> Profiles;
 
     void ArPenArmorProfileFile()
@@ -106,7 +107,8 @@ class ArPenArmorProfiles
             data.IsSoftArmor = profile.IsSoftArmor;
             data.UseSimpleHealthScaling = profile.UseSimpleHealthScaling;
             data.ArmorLevel = profile.ArmorLevel;
-            data.ArmorSchemaHealthProtection = profile.ArmorSchemaHealthProtection;
+            data.ArmorSchemaHealthDamageMultiplier = profile.ArmorSchemaHealthDamageMultiplier;
+            data.ArmorSchemaHealthCapacity = profile.ArmorSchemaHealthCapacity;
             data.BaseKrupp = profile.Krupp;
             data.BaseArmorHealth = profile.ArmorHealth;
             data.ThicknessMM = profile.ThicknessMM;
@@ -206,7 +208,8 @@ class ArPenArmorProfiles
         profile.IsSoftArmor = IsSoftArmorClass(profile.ArmorClass);
         profile.UseSimpleHealthScaling = true;
         profile.ArmorLevel = "Unrated";
-        profile.ArmorSchemaHealthProtection = ReadArmorSchemaHealthProtection(profile.ArmorClass);
+        profile.ArmorSchemaHealthDamageMultiplier = ReadArmorSchemaHealthDamageMultiplier(profile.ArmorClass);
+        profile.ArmorSchemaHealthCapacity = ReadArmorSchemaHealthCapacity(profile.ArmorClass, profile.ArmorSchemaHealthDamageMultiplier);
         if (profile.IsSoftArmor)
         {
             profile.MaterialID = "kevlar";
@@ -283,11 +286,16 @@ class ArPenArmorProfiles
                 profile.BrinellHardness = 600.0;
             }
         }
+
+        // Generic hard armor keeps full base/max Krupp. The vanilla armor
+        // reduction determines its custom health pool instead of Krupp.
+        if (profile.UseSimpleHealthScaling)
+            profile.ArmorHealth = profile.ArmorSchemaHealthCapacity;
     }
 
     protected static bool ApplyVersion2TestValues()
     {
-        if (s_File.Version >= 9)
+        if (s_File.Version >= 10)
             return false;
 
         foreach (ArPenArmorProfile profile : s_File.Profiles)
@@ -296,8 +304,8 @@ class ArPenArmorProfiles
             ApplyVanillaTestDefaults(profile);
         }
 
-        s_File.Version = 9;
-        Print("[ArPen] Migrated armor profiles to schema-health protection model v9");
+        s_File.Version = 10;
+        Print("[ArPen] Migrated armor profiles to schema-derived armor health model v10");
         return true;
     }
 
@@ -333,12 +341,21 @@ class ArPenArmorProfiles
         return 1;
     }
 
-    protected static float ReadArmorSchemaHealthProtection(string armorClass)
+    protected static float ReadArmorSchemaHealthDamageMultiplier(string armorClass)
     {
         string healthPath = "CfgVehicles " + armorClass + " DamageSystem GlobalArmor Projectile Health damage";
         if (!GetGame().ConfigIsExisting(healthPath))
             return 1.0;
-        return Math.Clamp(1.0 - GetGame().ConfigGetFloat(healthPath), 0.0, 1.0);
+        return Math.Clamp(GetGame().ConfigGetFloat(healthPath), 0.0, 1.0);
+    }
+
+    protected static float ReadArmorSchemaHealthCapacity(string armorClass, float damageMultiplier)
+    {
+        string hitpointsPath = "CfgVehicles " + armorClass + " DamageSystem GlobalHealth Health hitpoints";
+        float healthCapacity = 100.0;
+        if (GetGame().ConfigIsExisting(hitpointsPath))
+            healthCapacity = GetGame().ConfigGetFloat(hitpointsPath);
+        return Math.Max(healthCapacity * Math.Clamp(damageMultiplier, 0.0, 1.0), 1.0);
     }
 
     protected static bool IsSoftArmorClass(string armorClass)

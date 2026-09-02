@@ -225,7 +225,8 @@ modded class PlayerBase
         {
             message = message + "\nArmor: " + armor.GetType();
             message = message + "\nArmor level: " + armorData.ArmorLevel;
-            message = message + "\nSchema protection: " + armorData.ArmorSchemaHealthProtection.ToString();
+            message = message + "\nSchema health damage: " + armorData.ArmorSchemaHealthDamageMultiplier.ToString();
+            message = message + "\nSchema armor HP: " + armorData.ArmorSchemaHealthCapacity.ToString();
             message = message + "\nMaterial: " + armorData.MaterialID + " (" + armorData.MaterialType + ")";
             message = message + "\nHardness: " + hitResult.CurrentKrupp.ToString() + " -> " + postKrupp.ToString();
             message = message + "\nEffective K: " + hitResult.EffectiveKrupp.ToString();
