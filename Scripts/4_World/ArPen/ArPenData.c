@@ -1,6 +1,8 @@
 class ArPenArmorData
 {
     bool Enabled;
+    bool IsSoftArmor;
+    bool UseSimpleHealthScaling;
     float BaseKrupp;
     float BaseArmorHealth;
     float ThicknessMM;
@@ -75,6 +77,8 @@ class ArPenConfig
             return false;
         data = new ArPenArmorData();
         data.Enabled = GetGame().ConfigGetInt(path + " enabled") == 1;
+        data.IsSoftArmor = GetGame().ConfigGetInt(path + " isSoftArmor") == 1;
+        data.UseSimpleHealthScaling = GetGame().ConfigGetInt(path + " useSimpleHealthScaling") == 1;
         data.BaseKrupp = ReadFloat(path, "krupp", 0.0);
         data.BaseArmorHealth = ReadFloat(path, "armorHealth", 100.0);
         data.ThicknessMM = ReadFloat(path, "thicknessMM", 0.0);
