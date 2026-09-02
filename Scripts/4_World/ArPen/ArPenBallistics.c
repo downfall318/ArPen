@@ -12,6 +12,14 @@ class ArPenHitResult
     float ExitVelocity;
     float PenetrationDistanceMM;
     float ArmorDamage;
+    float ImpactEnergyJ;
+    float PlateThresholdJ;
+    float Brittleness;
+    float LocalDamage;
+    float CrackRadiusMM;
+    float GlobalCouplingFactor;
+    float MultiHitPenalty;
+    float DeformationMM;
     bool Penetrated;
     float DamageMultiplier;
 };
@@ -34,6 +42,7 @@ class ArPenBallistics
         ArPenHitResult result = new ArPenHitResult();
         result.Armor = armor;
         result.ImpactVelocity = ammoData.InitialVelocity * Math.Max(speedCoef, 0.0);
+        result.ImpactEnergyJ = 0.5 * ammoData.BulletMassKG * result.ImpactVelocity * result.ImpactVelocity;
         result.DamageMultiplier = Math.Clamp(result.ImpactVelocity / ammoData.InitialVelocity, 0.0, 1.0);
         ItemBase armorItem = ItemBase.Cast(armor);
         if (!armorItem)
@@ -70,11 +79,34 @@ class ArPenBallistics
             result.Penetrated = result.ExitVelocity > 50.0;
         }
 
+        if (!result.Penetrated)
+            CalculateStoppedRoundDeformation(result, armorData);
+
         if (result.Penetrated)
             result.DamageMultiplier = Math.Clamp(result.ExitVelocity / ammoData.InitialVelocity, 0.0, 1.0);
         else
             result.DamageMultiplier = 0.0;
 
         return result;
+    }
+
+    protected static void CalculateStoppedRoundDeformation(ArPenHitResult result, ArPenArmorData armorData)
+    {
+        result.PlateThresholdJ = armorData.ArealDensityKGPerM2 * armorData.ResistanceConstant;
+        result.Brittleness = Math.Clamp((armorData.AcousticImpedance - 33.5) / (51.3 - 33.5), 0.0, 1.0);
+
+        float toughness = Math.Max(armorData.PlateToughnessJ, 1.0);
+        result.LocalDamage = (result.ImpactEnergyJ - result.PlateThresholdJ) / toughness;
+        result.CrackRadiusMM = armorData.BaseCrackRadiusMM * (1.0 + result.Brittleness);
+        result.GlobalCouplingFactor = armorData.GlobalCouplingLow + (result.Brittleness * armorData.GlobalCouplingSpread);
+        result.MultiHitPenalty = 1.0 + (result.Brittleness * armorData.MultiHitSpread);
+
+        // Deformation is computed for stopped rounds only. It is intentionally
+        // not applied to the item's health or quality in this implementation.
+        float thresholdLoad = result.ImpactEnergyJ / Math.Max(result.PlateThresholdJ, 1.0);
+        float elasticLoad = Math.Clamp(thresholdLoad, 0.0, 1.0);
+        float overload = Math.Max(result.LocalDamage, 0.0);
+        float deformationScale = elasticLoad * elasticLoad * (1.0 + overload);
+        result.DeformationMM = Math.Min(armorData.BaseDeformationMM * deformationScale, armorData.MaxDeformationMM);
     }
 };
