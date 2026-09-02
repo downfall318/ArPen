@@ -15,11 +15,13 @@ class ArPenAmmoProfile
     float BloodDamageMultiplier = 0.5;
     float ShockDamageMultiplier = 1.0;
     float BluntShockMultiplier = 0.25;
+    string ThreatLevel = "Unrated";
+    float ReferenceThreatEnergyJ;
 };
 
 class ArPenAmmoProfileFile
 {
-    int Version = 1;
+    int Version = 2;
     ref array<ref ArPenAmmoProfile> Profiles;
     void ArPenAmmoProfileFile() { Profiles = new array<ref ArPenAmmoProfile>; }
 };
@@ -51,8 +53,9 @@ class ArPenAmmoProfiles
         if (!s_File.Profiles)
             s_File.Profiles = new array<ref ArPenAmmoProfile>;
 
+        bool migrated = ApplyThreatMetadata();
         int added = AddTestProfiles();
-        if (!FileExist(FILE_PATH) || added > 0)
+        if (!FileExist(FILE_PATH) || added > 0 || migrated)
             Save();
         Print("[ArPen] Loaded " + s_File.Profiles.Count().ToString() + " ammo profiles; added " + added.ToString());
     }
@@ -78,6 +81,8 @@ class ArPenAmmoProfiles
             data.BloodDamageMultiplier = profile.BloodDamageMultiplier;
             data.ShockDamageMultiplier = profile.ShockDamageMultiplier;
             data.BluntShockMultiplier = profile.BluntShockMultiplier;
+            data.ThreatLevel = profile.ThreatLevel;
+            data.ReferenceThreatEnergyJ = profile.ReferenceThreatEnergyJ;
             return data.InitialVelocity > 0.0 && data.BulletMassKG > 0.0 && data.CaliberMM > 0.0;
         }
         return false;
@@ -95,6 +100,7 @@ class ArPenAmmoProfiles
         added += AddProfile("Bullet_556x45_AP", "5.56x45mm M996 NATO", 1014.984, 0.0034, 0.260, 5.71, false, 50.0, 170.0, 1.25);
         added += AddProfile("Bullet_50AE", ".50 AE", 450.0, 0.019, 0.12, 12.71, false, 50.0, 170.0, 1.0);
         added += AddProfile("Bullet_762x39", "7.62x39mm FMJ", 715.0, 0.008, 0.295, 7.62, false, 55.0, 165.0, 1.0);
+        added += AddProfile("Bullet_22", ".22 LR", 370.0, 0.0026, 0.13, 5.7, false, 12.0, 140.0, 0.35);
         return added;
     }
 
@@ -116,8 +122,40 @@ class ArPenAmmoProfiles
         profile.BaseDamage = damage;
         profile.Decibels = decibels;
         profile.PenetrationMultiplier = penMultiplier;
+        AssignThreatMetadata(profile);
         s_File.Profiles.Insert(profile);
         return 1;
+    }
+
+    protected static bool ApplyThreatMetadata()
+    {
+        if (s_File.Version >= 2)
+            return false;
+
+        foreach (ArPenAmmoProfile profile : s_File.Profiles)
+            AssignThreatMetadata(profile);
+
+        s_File.Version = 2;
+        Print("[ArPen] Migrated ammunition profiles to threat metadata v2");
+        return true;
+    }
+
+    protected static void AssignThreatMetadata(ArPenAmmoProfile profile)
+    {
+        if (!profile)
+            return;
+
+        profile.ReferenceThreatEnergyJ = 0.5 * profile.BulletMassKG * profile.InitialVelocity * profile.InitialVelocity;
+        profile.ThreatLevel = "Unrated";
+
+        if (profile.AmmoClass == "Bullet_22")
+            profile.ThreatLevel = "Sub-IIA";
+        else if (profile.AmmoClass.Contains("50AE"))
+            profile.ThreatLevel = "IIIA";
+        else if (profile.AmmoClass.Contains("556x45_AP") || profile.AmmoClass.Contains("308Win_AP"))
+            profile.ThreatLevel = "IV";
+        else if (profile.AmmoClass.Contains("556x45") || profile.AmmoClass.Contains("308Win") || profile.AmmoClass.Contains("762x39"))
+            profile.ThreatLevel = "III";
     }
 
     protected static void Save()
