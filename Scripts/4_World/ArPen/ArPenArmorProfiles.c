@@ -9,11 +9,23 @@ class ArPenArmorProfile
     float HealthExponent = 1.25;
     float KruppLossPerAbsorbedDamage = 0.70;
     float ItemDamagePerAbsorbedDamage = 0.35;
+    // Plate deformation model. ResistanceConstant is calibrated in
+    // joules per kg/m2 from the reference threat/areal-density table.
+    float ArealDensityKGPerM2 = 25.9;
+    float AcousticImpedance = 37.5;
+    float ResistanceConstant = 151.6;
+    float PlateToughnessJ = 1000.0;
+    float BaseDeformationMM = 4.0;
+    float MaxDeformationMM = 44.0;
+    float BaseCrackRadiusMM = 25.0;
+    float GlobalCouplingLow = 0.05;
+    float GlobalCouplingSpread = 0.25;
+    float MultiHitSpread = 1.0;
 };
 
 class ArPenArmorProfileFile
 {
-    int Version = 4;
+    int Version = 5;
     ref array<ref ArPenArmorProfile> Profiles;
 
     void ArPenArmorProfileFile()
@@ -76,6 +88,16 @@ class ArPenArmorProfiles
             data.HealthExponent = profile.HealthExponent;
             data.KruppLossPerAbsorbedDamage = profile.KruppLossPerAbsorbedDamage;
             data.ItemDamagePerAbsorbedDamage = profile.ItemDamagePerAbsorbedDamage;
+            data.ArealDensityKGPerM2 = profile.ArealDensityKGPerM2;
+            data.AcousticImpedance = profile.AcousticImpedance;
+            data.ResistanceConstant = profile.ResistanceConstant;
+            data.PlateToughnessJ = profile.PlateToughnessJ;
+            data.BaseDeformationMM = profile.BaseDeformationMM;
+            data.MaxDeformationMM = profile.MaxDeformationMM;
+            data.BaseCrackRadiusMM = profile.BaseCrackRadiusMM;
+            data.GlobalCouplingLow = profile.GlobalCouplingLow;
+            data.GlobalCouplingSpread = profile.GlobalCouplingSpread;
+            data.MultiHitSpread = profile.MultiHitSpread;
             return data.BaseKrupp > 0.0 && data.ThicknessMM > 0.0;
         }
 
@@ -126,6 +148,10 @@ class ArPenArmorProfiles
             profile.HealthExponent = 1.25;
             profile.KruppLossPerAbsorbedDamage = 0.70;
             profile.ItemDamagePerAbsorbedDamage = 1.0;
+            profile.ArealDensityKGPerM2 = 5.9;
+            profile.AcousticImpedance = 33.5;
+            profile.PlateToughnessJ = 650.0;
+            profile.BaseDeformationMM = 5.0;
         }
 
         // Unity torso armor: 0.024 m = 24 mm, health pool 800.
@@ -140,19 +166,24 @@ class ArPenArmorProfiles
             profile.HealthExponent = 1.25;
             profile.KruppLossPerAbsorbedDamage = 0.70;
             profile.ItemDamagePerAbsorbedDamage = 1.0;
+            // Default ceramic plate is silicon carbide from the reference table.
+            profile.ArealDensityKGPerM2 = 25.9;
+            profile.AcousticImpedance = 37.5;
+            profile.PlateToughnessJ = 1000.0;
+            profile.BaseDeformationMM = 4.0;
         }
     }
 
     protected static bool ApplyVersion2TestValues()
     {
-        if (s_File.Version >= 4)
+        if (s_File.Version >= 5)
             return false;
 
         foreach (ArPenArmorProfile profile : s_File.Profiles)
             ApplyClassDefaults(profile);
 
-        s_File.Version = 4;
-        Print("[ArPen] Migrated helmet and ballistic vest profiles to Unity test values");
+        s_File.Version = 5;
+        Print("[ArPen] Migrated armor profiles to deformation model v5");
         return true;
     }
 
