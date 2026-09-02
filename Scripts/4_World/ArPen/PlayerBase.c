@@ -89,10 +89,12 @@ modded class PlayerBase
         if (ArPenConfig.ReadArmor(armor, armorData))
         {
             enrolledArmor = true;
-            hitResult = ArPenBallistics.Calculate(ammoData, armorData, armor, speedCoef);
+            hitResult = ArPenBallistics.Calculate(ammoData, armorData, armor, speedCoef, modelPos);
             ItemBase armorItem = ItemBase.Cast(armor);
             if (armorItem)
             {
+                if (armorData.MaterialType == "Steel" && !hitResult.Penetrated)
+                    armorItem.ArPen_RecordDent(modelPos, armorData.SameHitRadiusMM, hitResult.AddedDentDepthMM);
                 armorItem.ArPen_AbsorbDamage(armorData, hitResult.ArmorDamage);
                 postArmorHealth = armorItem.ArPen_GetCurrentArmorHealth(armorData);
                 postItemHealth = armorItem.GetHealth("", "Health");
@@ -116,6 +118,12 @@ modded class PlayerBase
             Print("[ArPen] GlobalCouplingFactor = " + hitResult.GlobalCouplingFactor.ToString());
             Print("[ArPen] MultiHitPenalty = " + hitResult.MultiHitPenalty.ToString());
             Print("[ArPen] DeformationMM = " + hitResult.DeformationMM.ToString());
+            Print("[ArPen] MaterialType = " + armorData.MaterialType);
+            Print("[ArPen] EffectiveThicknessMM = " + hitResult.EffectiveThicknessMM.ToString());
+            Print("[ArPen] PreviousDentDepthMM = " + hitResult.PreviousDentDepthMM.ToString());
+            Print("[ArPen] AddedDentDepthMM = " + hitResult.AddedDentDepthMM.ToString());
+            Print("[ArPen] TransmittedAccelerationG = " + hitResult.TransmittedAccelerationG.ToString());
+            Print("[ArPen] HelmetTrauma = " + hitResult.HelmetTrauma.ToString());
             Print("[ArPen] Penetrated = " + hitResult.Penetrated.ToString());
             Print("[ArPen] DamageMultiplier = " + hitResult.DamageMultiplier.ToString());
         }
@@ -136,7 +144,14 @@ modded class PlayerBase
         if (hitResult.Penetrated)
             customShockDamage = customHealthDamage * ammoData.ShockDamageMultiplier;
         else
+        {
             customShockDamage = ammoData.BaseDamage * ammoData.BluntShockMultiplier;
+            if (enrolledArmor && armorData.IsHelmet)
+            {
+                float traumaRatio = hitResult.TransmittedAccelerationG / Math.Max(armorData.HelmetTraumaLimitG, 1.0);
+                customShockDamage = customShockDamage * Math.Clamp(traumaRatio, 0.25, 2.0);
+            }
+        }
 
         if (customHealthDamage > 0.0)
             DecreaseHealth("", "Health", customHealthDamage);
@@ -165,6 +180,7 @@ modded class PlayerBase
         if (enrolledArmor)
         {
             message = message + "\nArmor: " + armor.GetType();
+            message = message + "\nMaterial: " + armorData.MaterialType;
             message = message + "\nHardness: " + hitResult.CurrentKrupp.ToString() + " -> " + postKrupp.ToString();
             message = message + "\nEffective K: " + hitResult.EffectiveKrupp.ToString();
             message = message + "\nThickness: " + armorData.ThicknessMM.ToString() + " mm";
@@ -179,6 +195,10 @@ modded class PlayerBase
                 message = message + "\nEnergy: " + hitResult.ImpactEnergyJ.ToString() + " / " + hitResult.PlateThresholdJ.ToString() + " J";
                 message = message + "\nBrittleness: " + hitResult.Brittleness.ToString();
                 message = message + "\nCrack radius: " + hitResult.CrackRadiusMM.ToString() + " mm";
+                if (armorData.MaterialType == "Steel")
+                    message = message + "\nDent: " + hitResult.PreviousDentDepthMM.ToString() + " + " + hitResult.AddedDentDepthMM.ToString() + " mm";
+                if (armorData.IsHelmet)
+                    message = message + "\nHelmet trauma: " + hitResult.TransmittedAccelerationG.ToString() + " g / " + armorData.HelmetTraumaLimitG.ToString() + " g";
             }
         }
 
