@@ -47,7 +47,7 @@ class ArPenArmorProfile
 
 class ArPenArmorProfileFile
 {
-    int Version = 10;
+    int Version = 11;
     ref array<ref ArPenArmorProfile> Profiles;
 
     void ArPenArmorProfileFile()
@@ -295,7 +295,7 @@ class ArPenArmorProfiles
 
     protected static bool ApplyVersion2TestValues()
     {
-        if (s_File.Version >= 10)
+        if (s_File.Version >= 11)
             return false;
 
         foreach (ArPenArmorProfile profile : s_File.Profiles)
@@ -304,19 +304,15 @@ class ArPenArmorProfiles
             ApplyVanillaTestDefaults(profile);
         }
 
-        s_File.Version = 10;
-        Print("[ArPen] Migrated armor profiles to schema-derived armor health model v10");
+        s_File.Version = 11;
+        Print("[ArPen] Migrated vanilla Plate Carrier test profiles to Level III v11");
         return true;
     }
 
     protected static int AddVanillaTestProfiles()
     {
         int added;
-        added += AddVanillaArmor("BallisticVest_ColorBase", "III", 2000.0, 800.0, 24.0, "silicon_carbide", "Ceramic");
-        added += AddVanillaArmor("BallisticVest_Black", "III", 2000.0, 800.0, 24.0, "silicon_carbide", "Ceramic");
-        added += AddVanillaArmor("BallisticVest_Green", "III", 2000.0, 800.0, 24.0, "silicon_carbide", "Ceramic");
-        added += AddVanillaArmor("BallisticVest_Olive", "III", 2000.0, 800.0, 24.0, "silicon_carbide", "Ceramic");
-        added += AddVanillaArmor("PlateCarrierVest", "IV", 2400.0, 900.0, 25.0, "silicon_carbide", "Ceramic");
+        added += AddVanillaArmor("PlateCarrierVest", "III", 2000.0, 800.0, 24.0, "silicon_carbide", "Ceramic");
         added += AddVanillaArmor("BallisticHelmet_ColorBase", "IIIA", 3600.0, 100.0, 10.16, "uhmwpe", "Polymer");
         return added;
     }
@@ -368,7 +364,7 @@ class ArPenArmorProfiles
         if (!profile)
             return;
 
-        if (profile.ArmorClass.Contains("BallisticVest"))
+        if (profile.ArmorClass.Contains("PlateCarrierVest"))
         {
             profile.IsSoftArmor = false;
             profile.UseSimpleHealthScaling = false;
@@ -376,17 +372,6 @@ class ArPenArmorProfiles
             profile.Krupp = 2000.0;
             profile.ArmorHealth = 800.0;
             profile.ThicknessMM = 24.0;
-            profile.MaterialID = "silicon_carbide";
-            profile.MaterialType = "Ceramic";
-        }
-        else if (profile.ArmorClass.Contains("PlateCarrierVest"))
-        {
-            profile.IsSoftArmor = false;
-            profile.UseSimpleHealthScaling = false;
-            profile.ArmorLevel = "IV";
-            profile.Krupp = 2400.0;
-            profile.ArmorHealth = 900.0;
-            profile.ThicknessMM = 25.0;
             profile.MaterialID = "silicon_carbide";
             profile.MaterialType = "Ceramic";
         }
