@@ -34,6 +34,9 @@ class ArPenArmorData
     float TileSurfaceAreaCM2;
     float FirstHitResidualIntegrity;
     float SubsequentHitIntegrityRatio;
+    float CeramicDamageExponent;
+    float CrackInitiationEnergyFraction;
+    float SubfloorDamageScale;
 };
 
 class ArPenAmmoData
@@ -51,6 +54,8 @@ class ArPenAmmoData
     float BloodDamageMultiplier;
     float ShockDamageMultiplier;
     float BluntShockMultiplier;
+    string ThreatLevel;
+    float ReferenceThreatEnergyJ;
 };
 
 class ArPenConfig
@@ -103,6 +108,9 @@ class ArPenConfig
         data.TileSurfaceAreaCM2 = ReadFloat(path, "tileSurfaceAreaCM2", 625.0);
         data.FirstHitResidualIntegrity = ReadFloat(path, "firstHitResidualIntegrity", 0.75);
         data.SubsequentHitIntegrityRatio = ReadFloat(path, "subsequentHitIntegrityRatio", 0.333333);
+        data.CeramicDamageExponent = ReadFloat(path, "ceramicDamageExponent", 1.75);
+        data.CrackInitiationEnergyFraction = ReadFloat(path, "crackInitiationEnergyFraction", 0.18);
+        data.SubfloorDamageScale = ReadFloat(path, "subfloorDamageScale", 0.02);
 
         ArPenMaterialData material;
         if (ArPenMaterialLibrary.Get(data.MaterialID, material))
@@ -118,6 +126,9 @@ class ArPenConfig
             data.MultiHitSpread = material.MultiHitSpread;
             data.FirstHitResidualIntegrity = material.FirstHitResidualIntegrity;
             data.SubsequentHitIntegrityRatio = material.SubsequentHitIntegrityRatio;
+            data.CeramicDamageExponent = material.CeramicDamageExponent;
+            data.CrackInitiationEnergyFraction = material.CrackInitiationEnergyFraction;
+            data.SubfloorDamageScale = material.SubfloorDamageScale;
         }
         return data.Enabled && data.BaseKrupp > 0.0 && data.ThicknessMM > 0.0;
     }
@@ -151,6 +162,8 @@ class ArPenConfig
         data.BloodDamageMultiplier = ReadFloat(path, "bloodDamageMultiplier", 0.5);
         data.ShockDamageMultiplier = ReadFloat(path, "shockDamageMultiplier", 1.0);
         data.BluntShockMultiplier = ReadFloat(path, "bluntShockMultiplier", 0.25);
+        data.ThreatLevel = ReadString(path, "threatLevel", "Unrated");
+        data.ReferenceThreatEnergyJ = ReadFloat(path, "referenceThreatEnergyJ", 0.0);
         return data.Enabled && !data.UseLegacyFallback && data.InitialVelocity > 0.0 && data.BulletMassKG > 0.0 && data.CaliberMM > 0.0;
     }
 
