@@ -9,6 +9,10 @@ modded class PlayerBase
         if (!ArPenConfig.ReadAmmo(ammo, ammoData))
             return super.EEOnDamageCalculated(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
 
+        float impactVelocity = ammoData.InitialVelocity * Math.Max(speedCoef, 0.0);
+        float impactEnergyJ = 0.5 * ammoData.BulletMassKG * impactVelocity * impactVelocity;
+        string effectiveThreatLevel = ArPenAmmoProfiles.GetEffectiveThreatLevel(ammoData, impactEnergyJ);
+
         float healthDamage = damageResult.GetDamage(dmgZone, "Health");
         float bloodDamage = damageResult.GetDamage(dmgZone, "Blood");
         float shockDamage = damageResult.GetDamage(dmgZone, "Shock");
@@ -59,7 +63,8 @@ modded class PlayerBase
         Print("[ArPen] ========================================");
         Print("[ArPen] DAMAGE EVENT");
         Print("[ArPen] Ammo = " + ammo);
-        Print("[ArPen] ThreatLevel = " + ammoData.ThreatLevel);
+        Print("[ArPen] MuzzleThreatLevel = " + ammoData.ThreatLevel);
+        Print("[ArPen] EffectiveThreatLevel = " + effectiveThreatLevel);
         Print("[ArPen] ReferenceThreatEnergyJ = " + ammoData.ReferenceThreatEnergyJ.ToString());
         Print("[ArPen] Zone = " + dmgZone);
         Print("[ArPen] Component = " + component.ToString());
@@ -102,7 +107,9 @@ modded class PlayerBase
         // GlobalArmor calculation and damage application.
         if (hasArmorProfile && armorData.IsSoftArmor)
         {
-            string softMessage = "Event: ARMOR HIT\nAmmo: " + ammo + " [" + ammoData.ThreatLevel + "]";
+            string softMessage = "Event: ARMOR HIT\nAmmo: " + ammo;
+            softMessage = softMessage + "\nMuzzle threat: " + ammoData.ThreatLevel;
+            softMessage = softMessage + "\nImpact threat: " + effectiveThreatLevel;
             softMessage = softMessage + "\nZone: " + dmgZone + "\nArmor: " + armor.GetType();
             softMessage = softMessage + "\nClass: SOFT ARMOR (native damage)";
             NotificationSystem.SendNotificationToPlayerIdentityExtended(GetIdentity(), 12.0, "ArPen Armor Hit", softMessage, "");
@@ -176,6 +183,8 @@ modded class PlayerBase
             hitResult.ImpactVelocity = ammoData.InitialVelocity * Math.Max(speedCoef, 0.0);
             hitResult.ExitVelocity = hitResult.ImpactVelocity;
             hitResult.Penetrated = true;
+            hitResult.ImpactEnergyJ = impactEnergyJ;
+            hitResult.EffectiveThreatLevel = effectiveThreatLevel;
             hitResult.DamageMultiplier = Math.Clamp(hitResult.ImpactVelocity / ammoData.InitialVelocity, 0.0, 1.0);
             Print("[ArPen] No enrolled armor for zone; applying full custom damage");
         }
@@ -226,7 +235,9 @@ modded class PlayerBase
                 penetrationStatus = "STOPPED";
         }
 
-        string message = "Event: " + penetrationStatus + "\nAmmo: " + ammo + " [" + ammoData.ThreatLevel + "] | Zone: " + dmgZone;
+        string message = "Event: " + penetrationStatus + "\nAmmo: " + ammo + " | Zone: " + dmgZone;
+        message = message + "\nMuzzle threat: " + ammoData.ThreatLevel;
+        message = message + "\nImpact threat: " + hitResult.EffectiveThreatLevel;
         message = message + "\nStatus: " + penetrationStatus;
         message = message + "\nV: " + hitResult.ImpactVelocity.ToString() + " -> " + hitResult.ExitVelocity.ToString() + " m/s";
 

@@ -13,6 +13,7 @@ class ArPenHitResult
     float PenetrationDistanceMM;
     float ArmorDamage;
     float ImpactEnergyJ;
+    string EffectiveThreatLevel;
     float PlateThresholdJ;
     float RatedPlateThresholdJ;
     float Brittleness;
@@ -59,6 +60,7 @@ class ArPenBallistics
         result.Armor = armor;
         result.ImpactVelocity = ammoData.InitialVelocity * Math.Max(speedCoef, 0.0);
         result.ImpactEnergyJ = 0.5 * ammoData.BulletMassKG * result.ImpactVelocity * result.ImpactVelocity;
+        result.EffectiveThreatLevel = ArPenAmmoProfiles.GetEffectiveThreatLevel(ammoData, result.ImpactEnergyJ);
         result.DamageMultiplier = Math.Clamp(result.ImpactVelocity / ammoData.InitialVelocity, 0.0, 1.0);
         ItemBase armorItem = ItemBase.Cast(armor);
         if (!armorItem)

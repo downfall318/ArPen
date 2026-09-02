@@ -214,6 +214,74 @@ class ArPenAmmoProfiles
         }
     }
 
+    static string GetEffectiveThreatLevel(ArPenAmmoData ammoData, float impactEnergyJ)
+    {
+        Initialize();
+
+        int nominalRank = GetThreatRank(ammoData.ThreatLevel);
+        bool useEnergyEquivalent = nominalRank < 0;
+        int maximumRank = nominalRank;
+        if (useEnergyEquivalent)
+            maximumRank = 5; // Energy alone never promotes a load to construction-dependent Level IV.
+
+        for (int rank = maximumRank; rank >= 0; rank--)
+        {
+            string candidate = GetThreatLevelForRank(rank);
+            float energyFloorJ = GetThreatEnergyFloorJ(candidate);
+            if (energyFloorJ > 0.0 && impactEnergyJ >= energyFloorJ)
+            {
+                if (useEnergyEquivalent)
+                    return candidate + " (KE)";
+                return candidate;
+            }
+        }
+
+        if (useEnergyEquivalent)
+            return "Below rated range (KE)";
+        return "Below " + ammoData.ThreatLevel;
+    }
+
+    protected static float GetThreatEnergyFloorJ(string threatLevel)
+    {
+        float floorJ = -1.0;
+        foreach (ArPenAmmoProfile profile : s_File.Profiles)
+        {
+            if (!profile || !profile.Enabled || profile.UseLegacyFallback || profile.ThreatLevel != threatLevel)
+                continue;
+
+            float referenceEnergyJ = profile.ReferenceThreatEnergyJ;
+            if (referenceEnergyJ <= 0.0)
+                referenceEnergyJ = 0.5 * profile.BulletMassKG * profile.InitialVelocity * profile.InitialVelocity;
+
+            if (referenceEnergyJ > 0.0 && (floorJ < 0.0 || referenceEnergyJ < floorJ))
+                floorJ = referenceEnergyJ;
+        }
+        return floorJ;
+    }
+
+    protected static int GetThreatRank(string threatLevel)
+    {
+        if (threatLevel == "Sub-IIA") return 0;
+        if (threatLevel == "IIA") return 1;
+        if (threatLevel == "II") return 2;
+        if (threatLevel == "IIIA+") return 3;
+        if (threatLevel == "III") return 4;
+        if (threatLevel == "III+") return 5;
+        if (threatLevel == "IV") return 6;
+        return -1;
+    }
+
+    protected static string GetThreatLevelForRank(int rank)
+    {
+        if (rank == 6) return "IV";
+        if (rank == 5) return "III+";
+        if (rank == 4) return "III";
+        if (rank == 3) return "IIIA+";
+        if (rank == 2) return "II";
+        if (rank == 1) return "IIA";
+        return "Sub-IIA";
+    }
+
     protected static void Save()
     {
         MakeDirectory(DIRECTORY);
