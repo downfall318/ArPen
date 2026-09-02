@@ -101,6 +101,8 @@ class ArPenConfig
         data.HelmetTraumaLimitG = ReadFloat(path, "helmetTraumaLimitG", 400.0);
         data.SurfaceAreaCM2 = ReadFloat(path, "surfaceAreaCM2", 2500.0);
         data.TileSurfaceAreaCM2 = ReadFloat(path, "tileSurfaceAreaCM2", 625.0);
+        data.FirstHitResidualIntegrity = ReadFloat(path, "firstHitResidualIntegrity", 0.75);
+        data.SubsequentHitIntegrityRatio = ReadFloat(path, "subsequentHitIntegrityRatio", 0.333333);
 
         ArPenMaterialData material;
         if (ArPenMaterialLibrary.Get(data.MaterialID, material))
