@@ -8,6 +8,16 @@ class ArPenArmorData
     float HealthExponent;
     float KruppLossPerAbsorbedDamage;
     float ItemDamagePerAbsorbedDamage;
+    float ArealDensityKGPerM2;
+    float AcousticImpedance;
+    float ResistanceConstant;
+    float PlateToughnessJ;
+    float BaseDeformationMM;
+    float MaxDeformationMM;
+    float BaseCrackRadiusMM;
+    float GlobalCouplingLow;
+    float GlobalCouplingSpread;
+    float MultiHitSpread;
 };
 
 class ArPenAmmoData
@@ -51,6 +61,16 @@ class ArPenConfig
         data.HealthExponent = ReadFloat(path, "healthExponent", 1.0);
         data.KruppLossPerAbsorbedDamage = ReadFloat(path, "kruppLossPerAbsorbedDamage", 0.0);
         data.ItemDamagePerAbsorbedDamage = ReadFloat(path, "itemDamagePerAbsorbedDamage", 0.0);
+        data.ArealDensityKGPerM2 = ReadFloat(path, "arealDensityKGPerM2", 25.9);
+        data.AcousticImpedance = ReadFloat(path, "acousticImpedance", 37.5);
+        data.ResistanceConstant = ReadFloat(path, "resistanceConstant", 151.6);
+        data.PlateToughnessJ = ReadFloat(path, "plateToughnessJ", 1000.0);
+        data.BaseDeformationMM = ReadFloat(path, "baseDeformationMM", 4.0);
+        data.MaxDeformationMM = ReadFloat(path, "maxDeformationMM", 44.0);
+        data.BaseCrackRadiusMM = ReadFloat(path, "baseCrackRadiusMM", 25.0);
+        data.GlobalCouplingLow = ReadFloat(path, "globalCouplingLow", 0.05);
+        data.GlobalCouplingSpread = ReadFloat(path, "globalCouplingSpread", 0.25);
+        data.MultiHitSpread = ReadFloat(path, "multiHitSpread", 1.0);
         return data.Enabled && data.BaseKrupp > 0.0 && data.ThicknessMM > 0.0;
     }
 
