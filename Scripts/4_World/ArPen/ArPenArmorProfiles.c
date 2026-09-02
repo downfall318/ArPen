@@ -126,6 +126,8 @@ class ArPenArmorProfiles
             data.HelmetTraumaLimitG = profile.HelmetTraumaLimitG;
             data.SurfaceAreaCM2 = profile.SurfaceAreaCM2;
             data.TileSurfaceAreaCM2 = profile.TileSurfaceAreaCM2;
+            data.FirstHitResidualIntegrity = 0.75;
+            data.SubsequentHitIntegrityRatio = 0.333333;
 
             ArPenMaterialData material;
             if (ArPenMaterialLibrary.Get(profile.MaterialID, material))
