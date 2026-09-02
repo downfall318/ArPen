@@ -18,6 +18,17 @@ class ArPenArmorData
     float GlobalCouplingLow;
     float GlobalCouplingSpread;
     float MultiHitSpread;
+    string MaterialType;
+    float MaterialDensityGCM3;
+    float BrinellHardness;
+    float SteelDentToughnessConstant;
+    float SameHitRadiusMM;
+    bool IsHelmet;
+    float HelmetShellMassKG;
+    float HelmetCurvatureFactor;
+    float HelmetEnergyTransmission;
+    float HelmetStoppingDistanceMM;
+    float HelmetTraumaLimitG;
 };
 
 class ArPenAmmoData
@@ -71,6 +82,17 @@ class ArPenConfig
         data.GlobalCouplingLow = ReadFloat(path, "globalCouplingLow", 0.05);
         data.GlobalCouplingSpread = ReadFloat(path, "globalCouplingSpread", 0.25);
         data.MultiHitSpread = ReadFloat(path, "multiHitSpread", 1.0);
+        data.MaterialType = ReadString(path, "materialType", "Ceramic");
+        data.MaterialDensityGCM3 = ReadFloat(path, "materialDensityGCM3", 3.16);
+        data.BrinellHardness = ReadFloat(path, "brinellHardness", 0.0);
+        data.SteelDentToughnessConstant = ReadFloat(path, "steelDentToughnessConstant", 2.0);
+        data.SameHitRadiusMM = ReadFloat(path, "sameHitRadiusMM", 35.0);
+        data.IsHelmet = GetGame().ConfigGetInt(path + " isHelmet") == 1;
+        data.HelmetShellMassKG = ReadFloat(path, "helmetShellMassKG", 1.5);
+        data.HelmetCurvatureFactor = ReadFloat(path, "helmetCurvatureFactor", 0.60);
+        data.HelmetEnergyTransmission = ReadFloat(path, "helmetEnergyTransmission", 0.05);
+        data.HelmetStoppingDistanceMM = ReadFloat(path, "helmetStoppingDistanceMM", 20.0);
+        data.HelmetTraumaLimitG = ReadFloat(path, "helmetTraumaLimitG", 400.0);
         return data.Enabled && data.BaseKrupp > 0.0 && data.ThicknessMM > 0.0;
     }
 
@@ -104,6 +126,17 @@ class ArPenConfig
         data.ShockDamageMultiplier = ReadFloat(path, "shockDamageMultiplier", 1.0);
         data.BluntShockMultiplier = ReadFloat(path, "bluntShockMultiplier", 0.25);
         return data.Enabled && !data.UseLegacyFallback && data.InitialVelocity > 0.0 && data.BulletMassKG > 0.0 && data.CaliberMM > 0.0;
+    }
+
+    protected static string ReadString(string parentPath, string field, string fallback)
+    {
+        string path = parentPath + " " + field;
+        if (!GetGame().ConfigIsExisting(path))
+            return fallback;
+        string value;
+        if (!GetGame().ConfigGetText(path, value))
+            return fallback;
+        return value;
     }
 
     protected static float ReadFloat(string parentPath, string field, float fallback)
