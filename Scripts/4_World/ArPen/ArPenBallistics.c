@@ -25,6 +25,13 @@ class ArPenHitResult
     float EffectiveThicknessMM;
     float TransmittedAccelerationG;
     bool HelmetTrauma;
+    int MaterialHitCount;
+    float PreviousTileIntegrity;
+    float ResultingTileIntegrity;
+    float AffectedSurfaceAreaCM2;
+    float HealthPerSurfaceArea;
+    float IntegrityHealthLoss;
+    float IntegrityKruppLoss;
     bool Penetrated;
     float DamageMultiplier;
 };
@@ -66,9 +73,17 @@ class ArPenBallistics
         float trackedHealth01 = Math.Clamp(result.CurrentArmorHealth / Math.Max(result.BaseArmorHealth, 1.0), 0.0, 1.0);
         result.ArmorHealth01 = Math.Min(itemHealth01, trackedHealth01);
         result.CurrentKrupp = armorItem.ArPen_GetCurrentKrupp(armorData);
+        result.PreviousTileIntegrity = 1.0;
+        if (armorData.MaterialType == "Ceramic")
+        {
+            result.MaterialHitCount = armorItem.ArPen_GetCeramicTileHitCount(modelPosition, armorData.TileSurfaceAreaCM2) + 1;
+            result.PreviousTileIntegrity = armorItem.ArPen_GetCeramicTileIntegrity(modelPosition, armorData.TileSurfaceAreaCM2);
+        }
         float healthFactor = Math.Pow(result.ArmorHealth01, armorData.HealthExponent);
         healthFactor = armorData.MinHealthFactor + ((1.0 - armorData.MinHealthFactor) * healthFactor);
         result.EffectiveKrupp = result.CurrentKrupp * healthFactor;
+        if (armorData.MaterialType == "Ceramic")
+            result.EffectiveKrupp = result.EffectiveKrupp * result.PreviousTileIntegrity;
         if (result.EffectiveKrupp <= 0.0 || ammoData.CaliberMM <= 0.0)
             return result;
 
@@ -91,6 +106,8 @@ class ArPenBallistics
         }
 
         CalculateMaterialResponse(result, armorData);
+        if (armorData.MaterialType == "Ceramic")
+            CalculateCeramicIntegrityLoss(result, armorData);
 
         if (armorData.IsHelmet)
             CalculateHelmetResponse(result, armorData);
@@ -157,6 +174,27 @@ class ArPenBallistics
             float deformationScale = elasticLoad * elasticLoad * (1.0 + overload);
             result.DeformationMM = Math.Min(armorData.BaseDeformationMM * deformationScale, armorData.MaxDeformationMM);
         }
+    }
+
+    protected static void CalculateCeramicIntegrityLoss(ArPenHitResult result, ArPenArmorData armorData)
+    {
+        float firstHitIntegrity = Math.Clamp(armorData.FirstHitResidualIntegrity, 0.0, 1.0);
+        float decayRatio = Math.Clamp(armorData.SubsequentHitIntegrityRatio, 0.0, 1.0);
+        result.ResultingTileIntegrity = firstHitIntegrity;
+        if (result.MaterialHitCount > 1)
+            result.ResultingTileIntegrity = firstHitIntegrity * Math.Pow(decayRatio, result.MaterialHitCount - 1);
+
+        result.ResultingTileIntegrity = Math.Min(result.ResultingTileIntegrity, result.PreviousTileIntegrity);
+        result.AffectedSurfaceAreaCM2 = Math.Min(armorData.TileSurfaceAreaCM2, armorData.SurfaceAreaCM2);
+        result.HealthPerSurfaceArea = result.BaseArmorHealth / Math.Max(armorData.SurfaceAreaCM2, 1.0);
+
+        float newlyLostIntegrity = Math.Max(result.PreviousTileIntegrity - result.ResultingTileIntegrity, 0.0);
+        result.IntegrityHealthLoss = newlyLostIntegrity * result.AffectedSurfaceAreaCM2 * result.HealthPerSurfaceArea;
+
+        // Krupp loss follows the same fraction of the armor's total integrity
+        // removed by this tile event. It is applied directly after calculation.
+        float totalHealthFractionLost = result.IntegrityHealthLoss / Math.Max(result.BaseArmorHealth, 1.0);
+        result.IntegrityKruppLoss = armorData.BaseKrupp * totalHealthFractionLost;
     }
 
     protected static float CalculateSteelBrittleness(float brinellHardness)
