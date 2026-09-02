@@ -20,6 +20,11 @@ class ArPenHitResult
     float GlobalCouplingFactor;
     float MultiHitPenalty;
     float DeformationMM;
+    float PreviousDentDepthMM;
+    float AddedDentDepthMM;
+    float EffectiveThicknessMM;
+    float TransmittedAccelerationG;
+    bool HelmetTrauma;
     bool Penetrated;
     float DamageMultiplier;
 };
@@ -37,7 +42,7 @@ class ArPenBallistics
         return NULL;
     }
 
-    static ArPenHitResult Calculate(ArPenAmmoData ammoData, ArPenArmorData armorData, EntityAI armor, float speedCoef)
+    static ArPenHitResult Calculate(ArPenAmmoData ammoData, ArPenArmorData armorData, EntityAI armor, float speedCoef, vector modelPosition)
     {
         ArPenHitResult result = new ArPenHitResult();
         result.Armor = armor;
@@ -51,6 +56,12 @@ class ArPenBallistics
         result.ItemMaxHealth = armorItem.GetMaxHealth("", "Health");
         result.CurrentArmorHealth = armorItem.ArPen_GetCurrentArmorHealth(armorData);
         result.BaseArmorHealth = armorData.BaseArmorHealth;
+        result.EffectiveThicknessMM = armorData.ThicknessMM;
+        if (armorData.MaterialType == "Steel")
+        {
+            result.PreviousDentDepthMM = armorItem.ArPen_GetLocalDentDepth(modelPosition, armorData.SameHitRadiusMM);
+            result.EffectiveThicknessMM = Math.Max(armorData.ThicknessMM - result.PreviousDentDepthMM, 0.1);
+        }
         float itemHealth01 = Math.Clamp(armorItem.GetHealth01("", "Health"), 0.0, 1.0);
         float trackedHealth01 = Math.Clamp(result.CurrentArmorHealth / Math.Max(result.BaseArmorHealth, 1.0), 0.0, 1.0);
         result.ArmorHealth01 = Math.Min(itemHealth01, trackedHealth01);
@@ -66,21 +77,23 @@ class ArPenBallistics
         // Unity B is a world-distance value; armor profiles are explicitly mm.
         result.PenetrationDistanceMM = result.PenetrationDistanceMM * 1000.0;
 
-        float traveledMM = Math.Min(result.PenetrationDistanceMM, armorData.ThicknessMM);
-        float velocityScale = Math.Clamp(traveledMM / armorData.ThicknessMM, 0.0, 1.0);
+        float traveledMM = Math.Min(result.PenetrationDistanceMM, result.EffectiveThicknessMM);
+        float velocityScale = Math.Clamp(traveledMM / result.EffectiveThicknessMM, 0.0, 1.0);
         float damagePerVelocity = ammoData.BaseDamage / ammoData.InitialVelocity;
         float baseArmorDamage = damagePerVelocity * 5.0 * result.ImpactVelocity * Math.Pow(ammoData.PenetrationMultiplier, 4.0);
         result.ArmorDamage = Math.Min(baseArmorDamage * velocityScale * 3.0 / Math.Max(result.ArmorHealth01, 0.01), result.CurrentArmorHealth);
 
-        if (armorData.ThicknessMM <= result.PenetrationDistanceMM)
+        if (result.EffectiveThicknessMM <= result.PenetrationDistanceMM)
         {
-            float energyRemainingRatio = 1.0 - (armorData.ThicknessMM / result.PenetrationDistanceMM);
+            float energyRemainingRatio = 1.0 - (result.EffectiveThicknessMM / result.PenetrationDistanceMM);
             result.ExitVelocity = result.ImpactVelocity * Math.Sqrt(Math.Max(energyRemainingRatio, 0.0));
             result.Penetrated = result.ExitVelocity > 50.0;
         }
 
-        if (!result.Penetrated)
-            CalculateStoppedRoundDeformation(result, armorData);
+        CalculateMaterialResponse(result, armorData);
+
+        if (armorData.IsHelmet)
+            CalculateHelmetResponse(result, armorData);
 
         if (result.Penetrated)
             result.DamageMultiplier = Math.Clamp(result.ExitVelocity / ammoData.InitialVelocity, 0.0, 1.0);
@@ -90,23 +103,92 @@ class ArPenBallistics
         return result;
     }
 
-    protected static void CalculateStoppedRoundDeformation(ArPenHitResult result, ArPenArmorData armorData)
+    protected static void CalculateMaterialResponse(ArPenHitResult result, ArPenArmorData armorData)
     {
         result.PlateThresholdJ = armorData.ArealDensityKGPerM2 * armorData.ResistanceConstant;
-        result.Brittleness = Math.Clamp((armorData.AcousticImpedance - 33.5) / (51.3 - 33.5), 0.0, 1.0);
+        if (armorData.IsHelmet)
+            result.PlateThresholdJ = result.PlateThresholdJ / Math.Clamp(armorData.HelmetCurvatureFactor, 0.1, 1.0);
 
         float toughness = Math.Max(armorData.PlateToughnessJ, 1.0);
         result.LocalDamage = (result.ImpactEnergyJ - result.PlateThresholdJ) / toughness;
-        result.CrackRadiusMM = armorData.BaseCrackRadiusMM * (1.0 + result.Brittleness);
-        result.GlobalCouplingFactor = armorData.GlobalCouplingLow + (result.Brittleness * armorData.GlobalCouplingSpread);
-        result.MultiHitPenalty = 1.0 + (result.Brittleness * armorData.MultiHitSpread);
 
-        // Deformation is computed for stopped rounds only. It is intentionally
-        // not applied to the item's health or quality in this implementation.
-        float thresholdLoad = result.ImpactEnergyJ / Math.Max(result.PlateThresholdJ, 1.0);
-        float elasticLoad = Math.Clamp(thresholdLoad, 0.0, 1.0);
-        float overload = Math.Max(result.LocalDamage, 0.0);
-        float deformationScale = elasticLoad * elasticLoad * (1.0 + overload);
-        result.DeformationMM = Math.Min(armorData.BaseDeformationMM * deformationScale, armorData.MaxDeformationMM);
+        if (armorData.MaterialType == "Steel")
+        {
+            result.Brittleness = CalculateSteelBrittleness(armorData.BrinellHardness);
+            result.CrackRadiusMM = 0.0;
+            result.GlobalCouplingFactor = armorData.GlobalCouplingLow + (result.Brittleness * armorData.GlobalCouplingSpread);
+            result.MultiHitPenalty = 1.0 + (result.Brittleness * armorData.MultiHitSpread);
+            if (result.PreviousDentDepthMM > 0.0)
+                result.MultiHitPenalty = result.MultiHitPenalty + (result.PreviousDentDepthMM / Math.Max(armorData.ThicknessMM, 0.1));
+
+            if (!result.Penetrated)
+            {
+                float hardness = Math.Max(armorData.BrinellHardness, 1.0);
+                float dentConstant = Math.Max(armorData.SteelDentToughnessConstant, 0.01);
+                result.AddedDentDepthMM = result.ImpactEnergyJ / (hardness * dentConstant);
+                result.AddedDentDepthMM = Math.Min(result.AddedDentDepthMM, result.EffectiveThicknessMM);
+                result.DeformationMM = result.PreviousDentDepthMM + result.AddedDentDepthMM;
+            }
+            return;
+        }
+
+        if (armorData.MaterialType == "Ceramic")
+        {
+            result.Brittleness = Math.Clamp((armorData.AcousticImpedance - 33.5) / (51.3 - 33.5), 0.0, 1.0);
+            result.CrackRadiusMM = armorData.BaseCrackRadiusMM * (1.0 + result.Brittleness);
+            result.GlobalCouplingFactor = armorData.GlobalCouplingLow + (result.Brittleness * armorData.GlobalCouplingSpread);
+            result.MultiHitPenalty = 1.0 + (result.Brittleness * armorData.MultiHitSpread);
+        }
+        else
+        {
+            // Aramid/UHMWPE-style composite shells deform without ceramic
+            // crack propagation or steel's permanent local thickness loss.
+            result.Brittleness = 0.05;
+            result.CrackRadiusMM = 0.0;
+            result.GlobalCouplingFactor = 0.05;
+            result.MultiHitPenalty = 1.05;
+        }
+
+        if (!result.Penetrated)
+        {
+            float thresholdLoad = result.ImpactEnergyJ / Math.Max(result.PlateThresholdJ, 1.0);
+            float elasticLoad = Math.Clamp(thresholdLoad, 0.0, 1.0);
+            float overload = Math.Max(result.LocalDamage, 0.0);
+            float deformationScale = elasticLoad * elasticLoad * (1.0 + overload);
+            result.DeformationMM = Math.Min(armorData.BaseDeformationMM * deformationScale, armorData.MaxDeformationMM);
+        }
+    }
+
+    protected static float CalculateSteelBrittleness(float brinellHardness)
+    {
+        if (brinellHardness <= 550.0)
+        {
+            float ar500Range = Math.Clamp((brinellHardness - 477.0) / (550.0 - 477.0), 0.0, 1.0);
+            return 0.10 + (0.10 * ar500Range);
+        }
+
+        // Brittleness rises rapidly above the AR500 range.
+        float highHardnessRange = Math.Clamp((brinellHardness - 550.0) / 100.0, 0.0, 1.0);
+        return 0.20 + (0.80 * highHardnessRange);
+    }
+
+    protected static void CalculateHelmetResponse(ArPenHitResult result, ArPenArmorData armorData)
+    {
+        // CurvatureFactor below one represents load spreading: it raises the
+        // penetration threshold and reduces the energy delivered to the head.
+        float curvature = Math.Clamp(armorData.HelmetCurvatureFactor, 0.1, 1.0);
+        float shellMass = Math.Max(armorData.HelmetShellMassKG, 0.1);
+        float stoppingDistanceM = Math.Max(armorData.HelmetStoppingDistanceMM, 1.0) * 0.001;
+        float transmittedEnergy = result.ImpactEnergyJ * Math.Clamp(armorData.HelmetEnergyTransmission, 0.0, 1.0) * curvature;
+        result.TransmittedAccelerationG = transmittedEnergy / (shellMass * stoppingDistanceM * 9.80665);
+        result.HelmetTrauma = result.TransmittedAccelerationG > armorData.HelmetTraumaLimitG;
+
+        // Helmets use the energy threshold rather than flat-plate thickness
+        // alone. Preserve the Krupp exit calculation when both checks agree.
+        if (result.ImpactEnergyJ <= result.PlateThresholdJ)
+        {
+            result.Penetrated = false;
+            result.ExitVelocity = 0.0;
+        }
     }
 };
