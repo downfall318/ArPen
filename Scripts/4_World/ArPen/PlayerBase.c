@@ -108,6 +108,14 @@ modded class PlayerBase
             Print("[ArPen] ExitVelocity = " + hitResult.ExitVelocity.ToString());
             Print("[ArPen] PenetrationDistanceMM = " + hitResult.PenetrationDistanceMM.ToString());
             Print("[ArPen] ArmorDamage = " + hitResult.ArmorDamage.ToString());
+            Print("[ArPen] ImpactEnergyJ = " + hitResult.ImpactEnergyJ.ToString());
+            Print("[ArPen] PlateThresholdJ = " + hitResult.PlateThresholdJ.ToString());
+            Print("[ArPen] Brittleness = " + hitResult.Brittleness.ToString());
+            Print("[ArPen] LocalDamage = " + hitResult.LocalDamage.ToString());
+            Print("[ArPen] CrackRadiusMM = " + hitResult.CrackRadiusMM.ToString());
+            Print("[ArPen] GlobalCouplingFactor = " + hitResult.GlobalCouplingFactor.ToString());
+            Print("[ArPen] MultiHitPenalty = " + hitResult.MultiHitPenalty.ToString());
+            Print("[ArPen] DeformationMM = " + hitResult.DeformationMM.ToString());
             Print("[ArPen] Penetrated = " + hitResult.Penetrated.ToString());
             Print("[ArPen] DamageMultiplier = " + hitResult.DamageMultiplier.ToString());
         }
@@ -165,6 +173,13 @@ modded class PlayerBase
             message = message + "\nHealth factor: " + hitResult.ArmorHealth01.ToString();
             message = message + "\nPENMAX: " + hitResult.PenetrationDistanceMM.ToString() + " mm vs " + armorData.ThicknessMM.ToString() + " mm";
             message = message + "\nArmor damage: " + hitResult.ArmorDamage.ToString();
+            if (!hitResult.Penetrated)
+            {
+                message = message + "\nDeformation: " + hitResult.DeformationMM.ToString() + " mm";
+                message = message + "\nEnergy: " + hitResult.ImpactEnergyJ.ToString() + " / " + hitResult.PlateThresholdJ.ToString() + " J";
+                message = message + "\nBrittleness: " + hitResult.Brittleness.ToString();
+                message = message + "\nCrack radius: " + hitResult.CrackRadiusMM.ToString() + " mm";
+            }
         }
 
         message = message + "\nDamage H/B/S: " + customHealthDamage.ToString() + "/" + customBloodDamage.ToString() + "/" + customShockDamage.ToString();
