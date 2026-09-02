@@ -128,6 +128,9 @@ class ArPenArmorProfiles
             data.TileSurfaceAreaCM2 = profile.TileSurfaceAreaCM2;
             data.FirstHitResidualIntegrity = 0.75;
             data.SubsequentHitIntegrityRatio = 0.333333;
+            data.CeramicDamageExponent = 1.75;
+            data.CrackInitiationEnergyFraction = 0.18;
+            data.SubfloorDamageScale = 0.02;
 
             ArPenMaterialData material;
             if (ArPenMaterialLibrary.Get(profile.MaterialID, material))
@@ -143,6 +146,9 @@ class ArPenArmorProfiles
                 data.MultiHitSpread = material.MultiHitSpread;
                 data.FirstHitResidualIntegrity = material.FirstHitResidualIntegrity;
                 data.SubsequentHitIntegrityRatio = material.SubsequentHitIntegrityRatio;
+                data.CeramicDamageExponent = material.CeramicDamageExponent;
+                data.CrackInitiationEnergyFraction = material.CrackInitiationEnergyFraction;
+                data.SubfloorDamageScale = material.SubfloorDamageScale;
             }
             return data.BaseKrupp > 0.0 && data.ThicknessMM > 0.0;
         }
