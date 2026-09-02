@@ -89,6 +89,15 @@ modded class PlayerBase
         float postKrupp;
         bool hasArmorProfile = ArPenConfig.ReadArmor(armor, armorData);
 
+        // Equipped armor that is not explicitly enrolled as hard ballistic
+        // armor—including soft armor and protective/cosmetic headgear—uses
+        // DayZ's original GlobalArmor result.
+        if (armor && !hasArmorProfile)
+        {
+            Print("[ArPen] ARMOR HIT | NATIVE FALLBACK | " + armor.GetType());
+            return super.EEOnDamageCalculated(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
+        }
+
         // Kevlar and other soft armor deliberately retain DayZ's native
         // GlobalArmor calculation and damage application.
         if (hasArmorProfile && armorData.IsSoftArmor)

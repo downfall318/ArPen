@@ -21,7 +21,7 @@ class ArPenAmmoProfile
 
 class ArPenAmmoProfileFile
 {
-    int Version = 3;
+    int Version = 4;
     ref array<ref ArPenAmmoProfile> Profiles;
     void ArPenAmmoProfileFile() { Profiles = new array<ref ArPenAmmoProfile>; }
 };
@@ -96,8 +96,8 @@ class ArPenAmmoProfiles
         added += AddProfile("Bullet_308Win", "7.62x51mm NATO", 853.0, 0.00947, 0.393, 7.82, false, 65.0, 170.0, 1.0);
         added += AddProfile("Bullet_308Win_Tracer", "7.62x51mm NATO Tracer", 853.0, 0.00947, 0.393, 7.82, true, 65.0, 170.0, 1.0);
         added += AddProfile("Bullet_308Win_Subsonic", "7.62x51mm SubSonic", 325.0, 0.013, 0.518, 7.82, false, 25.0, 157.0, 1.0);
-        added += AddProfile("Bullet_308Win_AP", "7.62x51mm M993", 930.0, 0.0127006, 0.419, 7.82, false, 70.0, 170.0, 1.35);
-        added += AddProfile("Bullet_556x45_AP", "5.56x45mm M996 NATO", 1014.984, 0.0034, 0.260, 5.71, false, 50.0, 170.0, 1.25);
+        added += AddProfile("Bullet_308Win_AP", "7.62x51mm M993 AP", 930.0, 0.0082, 0.400, 7.82, false, 70.0, 170.0, 1.75);
+        added += AddProfile("Bullet_556x45_AP", "5.56x45mm M995 AP", 1000.0, 0.0034, 0.304, 5.71, false, 50.0, 170.0, 2.10);
         added += AddProfile("Bullet_50AE", ".50 AE", 450.0, 0.019, 0.12, 12.71, false, 50.0, 170.0, 1.0);
         added += AddProfile("Bullet_762x39", "7.62x39mm FMJ", 715.0, 0.008, 0.295, 7.62, false, 55.0, 165.0, 1.0);
         added += AddProfile("Bullet_22", ".22 LR", 370.0, 0.0026, 0.13, 5.7, false, 12.0, 140.0, 0.35);
@@ -111,7 +111,8 @@ class ArPenAmmoProfiles
         added += AddProfile("Bullet_762x54_Tracer", "7.62x54mmR Tracer", 830.0, 0.0096, 0.40, 7.92, true, 70.0, 170.0, 1.10);
         added += AddProfile("Bullet_9x39", "9x39mm", 295.0, 0.0160, 0.31, 9.25, false, 55.0, 155.0, 1.10);
         added += AddProfile("Bullet_9x39AP", "9x39mm AP", 310.0, 0.0160, 0.31, 9.25, false, 58.0, 155.0, 1.30);
-        added += AddProfile("Bullet_12GaugePellets", "12 Gauge Buckshot", 400.0, 0.0320, 0.06, 18.5, false, 34.0, 165.0, 0.65);
+        // Pellet profile values are per pellet, not the mass/caliber of the shell.
+        added += AddProfile("Bullet_12GaugePellets", "12 Gauge Buckshot Pellet", 400.0, 0.0035, 0.045, 8.38, false, 34.0, 165.0, 0.65);
         added += AddProfile("Bullet_12GaugeSlug", "12 Gauge Slug", 450.0, 0.0280, 0.07, 18.5, false, 110.0, 170.0, 0.90);
         added += AddProfile("Bullet_12GaugeRubberSlug", "12 Gauge Rubber Slug", 220.0, 0.0060, 0.05, 18.5, false, 10.0, 145.0, 0.20);
         return added;
@@ -142,14 +143,17 @@ class ArPenAmmoProfiles
 
     protected static bool ApplyThreatMetadata()
     {
-        if (s_File.Version >= 3)
+        if (s_File.Version >= 4)
             return false;
 
         foreach (ArPenAmmoProfile profile : s_File.Profiles)
+        {
+            ApplyCorrectedVanillaValues(profile);
             AssignThreatMetadata(profile);
+        }
 
-        s_File.Version = 3;
-        Print("[ArPen] Migrated vanilla ammunition profiles to threat metadata v3");
+        s_File.Version = 4;
+        Print("[ArPen] Migrated vanilla ammunition values and threat metadata v4");
         return true;
     }
 
@@ -161,22 +165,53 @@ class ArPenAmmoProfiles
         profile.ReferenceThreatEnergyJ = 0.5 * profile.BulletMassKG * profile.InitialVelocity * profile.InitialVelocity;
         profile.ThreatLevel = "Unrated";
 
-        if (profile.AmmoClass == "Bullet_22")
+        if (profile.AmmoClass.Contains("556x45_AP") || profile.AmmoClass.Contains("308Win_AP"))
+            profile.ThreatLevel = "IV";
+        else if (profile.AmmoClass == "Bullet_22")
             profile.ThreatLevel = "Sub-IIA";
         else if (profile.AmmoClass.Contains("RubberSlug"))
             profile.ThreatLevel = "Sub-IIA";
         else if (profile.AmmoClass.Contains("380"))
             profile.ThreatLevel = "IIA";
-        else if (profile.AmmoClass.Contains("9x19") || profile.AmmoClass.Contains("45ACP"))
+        else if (profile.AmmoClass.Contains("9x19") || profile.AmmoClass.Contains("45ACP") || profile.AmmoClass.Contains("357"))
             profile.ThreatLevel = "II";
-        else if (profile.AmmoClass.Contains("357") || profile.AmmoClass.Contains("12Gauge"))
-            profile.ThreatLevel = "IIIA";
+        else if (profile.AmmoClass.Contains("12Gauge"))
+            profile.ThreatLevel = "Unrated-Shotgun";
         else if (profile.AmmoClass.Contains("50AE"))
-            profile.ThreatLevel = "IIIA";
-        else if (profile.AmmoClass.Contains("556x45_AP") || profile.AmmoClass.Contains("308Win_AP"))
-            profile.ThreatLevel = "IV";
-        else if (profile.AmmoClass.Contains("556x45") || profile.AmmoClass.Contains("545x39") || profile.AmmoClass.Contains("308Win") || profile.AmmoClass.Contains("762x39") || profile.AmmoClass.Contains("762x54") || profile.AmmoClass.Contains("9x39"))
+            profile.ThreatLevel = "IIIA+";
+        else if (profile.AmmoClass.Contains("308Win_Subsonic"))
+            profile.ThreatLevel = "Special";
+        else if (profile.AmmoClass.Contains("762x54"))
+            profile.ThreatLevel = "III+";
+        else if (profile.AmmoClass.Contains("556x45") || profile.AmmoClass.Contains("545x39") || profile.AmmoClass.Contains("308Win") || profile.AmmoClass.Contains("762x39") || profile.AmmoClass.Contains("9x39"))
             profile.ThreatLevel = "III";
+    }
+
+    protected static void ApplyCorrectedVanillaValues(ArPenAmmoProfile profile)
+    {
+        if (profile.AmmoClass == "Bullet_308Win_AP")
+        {
+            profile.DisplayName = "7.62x51mm M993 AP";
+            profile.InitialVelocity = 930.0;
+            profile.BulletMassKG = 0.0082;
+            profile.BallisticCoefficient = 0.400;
+            profile.PenetrationMultiplier = 1.75;
+        }
+        else if (profile.AmmoClass == "Bullet_556x45_AP")
+        {
+            profile.DisplayName = "5.56x45mm M995 AP";
+            profile.InitialVelocity = 1000.0;
+            profile.BulletMassKG = 0.0034;
+            profile.BallisticCoefficient = 0.304;
+            profile.PenetrationMultiplier = 2.10;
+        }
+        else if (profile.AmmoClass == "Bullet_12GaugePellets")
+        {
+            profile.DisplayName = "12 Gauge Buckshot Pellet";
+            profile.BulletMassKG = 0.0035;
+            profile.BallisticCoefficient = 0.045;
+            profile.CaliberMM = 8.38;
+        }
     }
 
     protected static void Save()
