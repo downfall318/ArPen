@@ -9,11 +9,37 @@ class ArPenArmorProfile
     float HealthExponent = 1.25;
     float KruppLossPerAbsorbedDamage = 0.70;
     float ItemDamagePerAbsorbedDamage = 0.35;
+    // Plate deformation model. ResistanceConstant is calibrated in
+    // joules per kg/m2 from the reference threat/areal-density table.
+    float ArealDensityKGPerM2 = 25.9;
+    float AcousticImpedance = 37.5;
+    float ResistanceConstant = 151.6;
+    float PlateToughnessJ = 1000.0;
+    float BaseDeformationMM = 4.0;
+    float MaxDeformationMM = 44.0;
+    float BaseCrackRadiusMM = 25.0;
+    float GlobalCouplingLow = 0.05;
+    float GlobalCouplingSpread = 0.25;
+    float MultiHitSpread = 1.0;
+    string MaterialID = "silicon_carbide";
+    string MaterialType = "Ceramic";
+    float MaterialDensityGCM3 = 3.16;
+    float BrinellHardness = 0.0;
+    float SteelDentToughnessConstant = 2.0;
+    float SameHitRadiusMM = 35.0;
+    bool IsHelmet = false;
+    float HelmetShellMassKG = 1.5;
+    float HelmetCurvatureFactor = 0.60;
+    float HelmetEnergyTransmission = 0.05;
+    float HelmetStoppingDistanceMM = 20.0;
+    float HelmetTraumaLimitG = 400.0;
+    float SurfaceAreaCM2 = 2500.0;
+    float TileSurfaceAreaCM2 = 625.0;
 };
 
 class ArPenArmorProfileFile
 {
-    int Version = 4;
+    int Version = 7;
     ref array<ref ArPenArmorProfile> Profiles;
 
     void ArPenArmorProfileFile()
@@ -76,6 +102,48 @@ class ArPenArmorProfiles
             data.HealthExponent = profile.HealthExponent;
             data.KruppLossPerAbsorbedDamage = profile.KruppLossPerAbsorbedDamage;
             data.ItemDamagePerAbsorbedDamage = profile.ItemDamagePerAbsorbedDamage;
+            data.ArealDensityKGPerM2 = profile.ArealDensityKGPerM2;
+            data.AcousticImpedance = profile.AcousticImpedance;
+            data.ResistanceConstant = profile.ResistanceConstant;
+            data.PlateToughnessJ = profile.PlateToughnessJ;
+            data.BaseDeformationMM = profile.BaseDeformationMM;
+            data.MaxDeformationMM = profile.MaxDeformationMM;
+            data.BaseCrackRadiusMM = profile.BaseCrackRadiusMM;
+            data.GlobalCouplingLow = profile.GlobalCouplingLow;
+            data.GlobalCouplingSpread = profile.GlobalCouplingSpread;
+            data.MultiHitSpread = profile.MultiHitSpread;
+            data.MaterialID = profile.MaterialID;
+            data.MaterialType = profile.MaterialType;
+            data.MaterialDensityGCM3 = profile.MaterialDensityGCM3;
+            data.BrinellHardness = profile.BrinellHardness;
+            data.SteelDentToughnessConstant = profile.SteelDentToughnessConstant;
+            data.SameHitRadiusMM = profile.SameHitRadiusMM;
+            data.IsHelmet = profile.IsHelmet;
+            data.HelmetShellMassKG = profile.HelmetShellMassKG;
+            data.HelmetCurvatureFactor = profile.HelmetCurvatureFactor;
+            data.HelmetEnergyTransmission = profile.HelmetEnergyTransmission;
+            data.HelmetStoppingDistanceMM = profile.HelmetStoppingDistanceMM;
+            data.HelmetTraumaLimitG = profile.HelmetTraumaLimitG;
+            data.SurfaceAreaCM2 = profile.SurfaceAreaCM2;
+            data.TileSurfaceAreaCM2 = profile.TileSurfaceAreaCM2;
+            data.FirstHitResidualIntegrity = 0.75;
+            data.SubsequentHitIntegrityRatio = 0.333333;
+
+            ArPenMaterialData material;
+            if (ArPenMaterialLibrary.Get(profile.MaterialID, material))
+            {
+                data.MaterialType = material.Family;
+                data.MaterialDensityGCM3 = material.DensityGCM3;
+                data.AcousticImpedance = material.AcousticImpedance;
+                data.BrinellHardness = material.BrinellHardness;
+                data.PlateToughnessJ = material.PlateToughnessJ;
+                data.BaseCrackRadiusMM = material.BaseCrackRadiusMM;
+                data.GlobalCouplingLow = material.GlobalCouplingLow;
+                data.GlobalCouplingSpread = material.GlobalCouplingSpread;
+                data.MultiHitSpread = material.MultiHitSpread;
+                data.FirstHitResidualIntegrity = material.FirstHitResidualIntegrity;
+                data.SubsequentHitIntegrityRatio = material.SubsequentHitIntegrityRatio;
+            }
             return data.BaseKrupp > 0.0 && data.ThicknessMM > 0.0;
         }
 
@@ -126,6 +194,21 @@ class ArPenArmorProfiles
             profile.HealthExponent = 1.25;
             profile.KruppLossPerAbsorbedDamage = 0.70;
             profile.ItemDamagePerAbsorbedDamage = 1.0;
+            profile.ArealDensityKGPerM2 = 5.9;
+            profile.AcousticImpedance = 33.5;
+            profile.PlateToughnessJ = 650.0;
+            profile.BaseDeformationMM = 5.0;
+            profile.MaterialID = "uhmwpe";
+            profile.MaterialType = "Polymer";
+            profile.MaterialDensityGCM3 = 1.44;
+            profile.IsHelmet = true;
+            profile.HelmetShellMassKG = 1.5;
+            profile.HelmetCurvatureFactor = 0.60;
+            profile.HelmetEnergyTransmission = 0.05;
+            profile.HelmetStoppingDistanceMM = 20.0;
+            profile.HelmetTraumaLimitG = 400.0;
+            profile.SurfaceAreaCM2 = 1800.0;
+            profile.TileSurfaceAreaCM2 = 1800.0;
         }
 
         // Unity torso armor: 0.024 m = 24 mm, health pool 800.
@@ -140,19 +223,48 @@ class ArPenArmorProfiles
             profile.HealthExponent = 1.25;
             profile.KruppLossPerAbsorbedDamage = 0.70;
             profile.ItemDamagePerAbsorbedDamage = 1.0;
+            // Default ceramic plate is silicon carbide from the reference table.
+            profile.ArealDensityKGPerM2 = 25.9;
+            profile.AcousticImpedance = 37.5;
+            profile.PlateToughnessJ = 1000.0;
+            profile.BaseDeformationMM = 4.0;
+            profile.MaterialID = "silicon_carbide";
+            profile.MaterialType = "Ceramic";
+            profile.MaterialDensityGCM3 = 3.16;
+
+            // Name-based test defaults let AR500/steel mods enroll without
+            // requiring a direct config block. JSON values remain editable.
+            if (profile.ArmorClass.Contains("AR500") || profile.ArmorClass.Contains("Steel"))
+            {
+                profile.MaterialID = "ar500_steel";
+                profile.MaterialType = "Steel";
+                profile.MaterialDensityGCM3 = 7.85;
+                profile.BrinellHardness = 514.0;
+                profile.ArealDensityKGPerM2 = 62.8;
+                profile.BaseCrackRadiusMM = 0.0;
+                profile.GlobalCouplingLow = 0.02;
+                profile.GlobalCouplingSpread = 0.03;
+                profile.MultiHitSpread = 0.05;
+            }
+
+            if (profile.ArmorClass.Contains("AR600"))
+            {
+                profile.MaterialID = "ar600_steel";
+                profile.BrinellHardness = 600.0;
+            }
         }
     }
 
     protected static bool ApplyVersion2TestValues()
     {
-        if (s_File.Version >= 4)
+        if (s_File.Version >= 7)
             return false;
 
         foreach (ArPenArmorProfile profile : s_File.Profiles)
             ApplyClassDefaults(profile);
 
-        s_File.Version = 4;
-        Print("[ArPen] Migrated helmet and ballistic vest profiles to Unity test values");
+        s_File.Version = 7;
+        Print("[ArPen] Migrated armor profiles to material library and area integrity model v7");
         return true;
     }
 
