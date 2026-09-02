@@ -13,11 +13,81 @@ class ArPenCeramicTileState
 
 modded class ItemBase
 {
+    protected static const int ARPEN_STORE_VERSION = 1;
     protected bool m_ArPenKruppInitialized;
     protected float m_ArPenCurrentKrupp;
     protected float m_ArPenCurrentArmorHealth;
     protected ref array<ref ArPenDentSite> m_ArPenDentSites;
     protected ref array<ref ArPenCeramicTileState> m_ArPenCeramicTiles;
+
+    override void OnStoreSave(ParamsWriteContext ctx)
+    {
+        super.OnStoreSave(ctx);
+        ctx.Write(ARPEN_STORE_VERSION);
+        ctx.Write(m_ArPenKruppInitialized);
+        ctx.Write(m_ArPenCurrentKrupp);
+        ctx.Write(m_ArPenCurrentArmorHealth);
+
+        int dentCount;
+        if (m_ArPenDentSites)
+            dentCount = m_ArPenDentSites.Count();
+        ctx.Write(dentCount);
+        for (int dentIndex = 0; dentIndex < dentCount; dentIndex++)
+        {
+            ctx.Write(m_ArPenDentSites[dentIndex].ModelPosition);
+            ctx.Write(m_ArPenDentSites[dentIndex].DepthMM);
+        }
+
+        int tileCount;
+        if (m_ArPenCeramicTiles)
+            tileCount = m_ArPenCeramicTiles.Count();
+        ctx.Write(tileCount);
+        for (int tileIndex = 0; tileIndex < tileCount; tileIndex++)
+        {
+            ctx.Write(m_ArPenCeramicTiles[tileIndex].ModelPosition);
+            ctx.Write(m_ArPenCeramicTiles[tileIndex].HitCount);
+            ctx.Write(m_ArPenCeramicTiles[tileIndex].Integrity);
+        }
+    }
+
+    override bool OnStoreLoad(ParamsReadContext ctx, int version)
+    {
+        if (!super.OnStoreLoad(ctx, version))
+            return false;
+
+        int arPenVersion;
+        if (!ctx.Read(arPenVersion))
+            return true; // Item was saved before ArPen persistence existed.
+        if (arPenVersion < 1 || arPenVersion > ARPEN_STORE_VERSION)
+            return false;
+        if (!ctx.Read(m_ArPenKruppInitialized) || !ctx.Read(m_ArPenCurrentKrupp) || !ctx.Read(m_ArPenCurrentArmorHealth))
+            return false;
+
+        int dentCount;
+        if (!ctx.Read(dentCount) || dentCount < 0 || dentCount > 256)
+            return false;
+        m_ArPenDentSites = new array<ref ArPenDentSite>;
+        for (int dentIndex = 0; dentIndex < dentCount; dentIndex++)
+        {
+            ArPenDentSite dent = new ArPenDentSite();
+            if (!ctx.Read(dent.ModelPosition) || !ctx.Read(dent.DepthMM))
+                return false;
+            m_ArPenDentSites.Insert(dent);
+        }
+
+        int tileCount;
+        if (!ctx.Read(tileCount) || tileCount < 0 || tileCount > 256)
+            return false;
+        m_ArPenCeramicTiles = new array<ref ArPenCeramicTileState>;
+        for (int tileIndex = 0; tileIndex < tileCount; tileIndex++)
+        {
+            ArPenCeramicTileState tile = new ArPenCeramicTileState();
+            if (!ctx.Read(tile.ModelPosition) || !ctx.Read(tile.HitCount) || !ctx.Read(tile.Integrity))
+                return false;
+            m_ArPenCeramicTiles.Insert(tile);
+        }
+        return true;
+    }
 
     float ArPen_GetCurrentKrupp(ArPenArmorData armorData)
     {

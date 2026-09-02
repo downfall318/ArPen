@@ -87,8 +87,21 @@ modded class PlayerBase
         float postArmorHealth;
         float postItemHealth;
         float postKrupp;
+        bool hasArmorProfile = ArPenConfig.ReadArmor(armor, armorData);
 
-        if (ArPenConfig.ReadArmor(armor, armorData))
+        // Kevlar and other soft armor deliberately retain DayZ's native
+        // GlobalArmor calculation and damage application.
+        if (hasArmorProfile && armorData.IsSoftArmor)
+        {
+            string softMessage = "Event: ARMOR HIT\nAmmo: " + ammo + " [" + ammoData.ThreatLevel + "]";
+            softMessage = softMessage + "\nZone: " + dmgZone + "\nArmor: " + armor.GetType();
+            softMessage = softMessage + "\nClass: SOFT ARMOR (native damage)";
+            NotificationSystem.SendNotificationToPlayerIdentityExtended(GetIdentity(), 12.0, "ArPen Armor Hit", softMessage, "");
+            Print("[ArPen] ARMOR HIT | SOFT ARMOR FALLBACK | " + armor.GetType());
+            return super.EEOnDamageCalculated(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
+        }
+
+        if (hasArmorProfile)
         {
             enrolledArmor = true;
             hitResult = ArPenBallistics.Calculate(ammoData, armorData, armor, speedCoef, modelPos);
@@ -158,14 +171,24 @@ modded class PlayerBase
             Print("[ArPen] No enrolled armor for zone; applying full custom damage");
         }
 
-        float customHealthDamage = ammoData.BaseDamage * hitResult.DamageMultiplier;
-        float customBloodDamage = customHealthDamage * ammoData.BloodDamageMultiplier;
+        float customHealthDamage;
+        float customBloodDamage;
         float customShockDamage;
 
         if (hitResult.Penetrated)
-            customShockDamage = customHealthDamage * ammoData.ShockDamageMultiplier;
+        {
+            // Reuse DayZ's base damage result, but recalculate it at the
+            // residual velocity after the projectile exits the armor.
+            float postPenetrationScale = hitResult.ExitVelocity / Math.Max(hitResult.ImpactVelocity, 0.001);
+            postPenetrationScale = Math.Clamp(postPenetrationScale, 0.0, 1.0);
+            customHealthDamage = healthDamage * postPenetrationScale;
+            customBloodDamage = bloodDamage * postPenetrationScale;
+            customShockDamage = shockDamage * postPenetrationScale;
+        }
         else
         {
+            customHealthDamage = 0.0;
+            customBloodDamage = 0.0;
             customShockDamage = ammoData.BaseDamage * ammoData.BluntShockMultiplier;
             if (enrolledArmor && armorData.IsHelmet)
             {
@@ -194,7 +217,7 @@ modded class PlayerBase
                 penetrationStatus = "STOPPED";
         }
 
-        string message = "Ammo: " + ammo + " [" + ammoData.ThreatLevel + "] | Zone: " + dmgZone;
+        string message = "Event: " + penetrationStatus + "\nAmmo: " + ammo + " [" + ammoData.ThreatLevel + "] | Zone: " + dmgZone;
         message = message + "\nStatus: " + penetrationStatus;
         message = message + "\nV: " + hitResult.ImpactVelocity.ToString() + " -> " + hitResult.ExitVelocity.ToString() + " m/s";
 
@@ -231,7 +254,10 @@ modded class PlayerBase
         }
 
         message = message + "\nDamage H/B/S: " + customHealthDamage.ToString() + "/" + customBloodDamage.ToString() + "/" + customShockDamage.ToString();
-        NotificationSystem.SendNotificationToPlayerIdentityExtended(NULL, 12.0, "ArPen Formula", message, "");
+        string notificationTitle = "ArPen Damage Event";
+        if (enrolledArmor)
+            notificationTitle = "ArPen Armor Hit";
+        NotificationSystem.SendNotificationToPlayerIdentityExtended(GetIdentity(), 12.0, notificationTitle, message, "");
 
         Print("[ArPen] Formula: B=(V*sqrt(M))/(Keff*sqrt(C))*PM");
         Print("[ArPen] PenetrationStatus = " + penetrationStatus);

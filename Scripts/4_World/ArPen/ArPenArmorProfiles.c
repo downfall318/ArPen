@@ -2,6 +2,10 @@ class ArPenArmorProfile
 {
     string ArmorClass;
     bool Enabled = true;
+    // Soft armor stays in DayZ's native GlobalArmor damage path.
+    bool IsSoftArmor;
+    // Unconverted armor uses base Krupp scaled directly by item health.
+    bool UseSimpleHealthScaling = true;
     float Krupp = 350.0;
     float ArmorHealth = 100.0;
     float ThicknessMM = 4.0;
@@ -39,7 +43,7 @@ class ArPenArmorProfile
 
 class ArPenArmorProfileFile
 {
-    int Version = 7;
+    int Version = 8;
     ref array<ref ArPenArmorProfile> Profiles;
 
     void ArPenArmorProfileFile()
@@ -95,6 +99,8 @@ class ArPenArmorProfiles
 
             data = new ArPenArmorData();
             data.Enabled = profile.Enabled;
+            data.IsSoftArmor = profile.IsSoftArmor;
+            data.UseSimpleHealthScaling = profile.UseSimpleHealthScaling;
             data.BaseKrupp = profile.Krupp;
             data.BaseArmorHealth = profile.ArmorHealth;
             data.ThicknessMM = profile.ThicknessMM;
@@ -190,6 +196,15 @@ class ArPenArmorProfiles
         if (!profile)
             return;
 
+        profile.IsSoftArmor = IsSoftArmorClass(profile.ArmorClass);
+        profile.UseSimpleHealthScaling = true;
+        if (profile.IsSoftArmor)
+        {
+            profile.MaterialID = "kevlar";
+            profile.MaterialType = "SoftArmor";
+            return;
+        }
+
         // Unity test helmet: 0.01016 m = 10.16 mm.
         if (profile.ArmorClass.Contains("BallisticHelmet"))
         {
@@ -263,15 +278,20 @@ class ArPenArmorProfiles
 
     protected static bool ApplyVersion2TestValues()
     {
-        if (s_File.Version >= 7)
+        if (s_File.Version >= 8)
             return false;
 
         foreach (ArPenArmorProfile profile : s_File.Profiles)
             ApplyClassDefaults(profile);
 
-        s_File.Version = 7;
-        Print("[ArPen] Migrated armor profiles to material library and area integrity model v7");
+        s_File.Version = 8;
+        Print("[ArPen] Migrated armor profiles to soft-armor and simple-health model v8");
         return true;
+    }
+
+    protected static bool IsSoftArmorClass(string armorClass)
+    {
+        return armorClass.Contains("Kevlar") || armorClass.Contains("SoftArmor") || armorClass.Contains("PressVest") || armorClass.Contains("PoliceVest");
     }
 
     protected static bool HasArmorSlot(string path)

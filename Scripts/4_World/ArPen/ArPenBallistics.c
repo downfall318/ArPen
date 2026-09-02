@@ -86,7 +86,9 @@ class ArPenBallistics
         float healthFactor = Math.Pow(result.ArmorHealth01, armorData.HealthExponent);
         healthFactor = armorData.MinHealthFactor + ((1.0 - armorData.MinHealthFactor) * healthFactor);
         result.EffectiveKrupp = result.CurrentKrupp * healthFactor;
-        if (armorData.MaterialType == "Ceramic")
+        if (armorData.UseSimpleHealthScaling)
+            result.EffectiveKrupp = armorData.BaseKrupp * result.ArmorHealth01;
+        if (armorData.MaterialType == "Ceramic" && !armorData.UseSimpleHealthScaling)
         {
             // Local ceramic residual strength is anchored directly to the
             // tile curve, preserving I2 / I1 = 1/3 exactly.
