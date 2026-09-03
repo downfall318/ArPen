@@ -219,7 +219,11 @@ modded class PlayerBase
             // A stopped projectile transfers all residual energy to armor/body.
             // Current PlateThresholdJ already reflects ceramic/polymer health.
             float armorLoad = (hitResult.ImpactEnergyJ * hitResult.TransferredEnergyFraction) / Math.Max(hitResult.PlateThresholdJ, 1.0);
-            bluntSeverity = Math.Pow(Math.Clamp(armorLoad, 0.0, 1.0), 1.25);
+            float energyBluntSeverity = Math.Pow(Math.Clamp(armorLoad, 0.0, 1.0), 1.25);
+            float depthBluntSeverity = Math.Pow(Math.Clamp(hitResult.DepthRatio, 0.0, 1.0), 2.0);
+            // PenetrationMultiplier is already included in DepthRatio through
+            // PenetrationDistanceMM, so near-perforations now raise blunt trauma.
+            bluntSeverity = Math.Max(energyBluntSeverity, depthBluntSeverity);
 
             float healthZoneMultiplier = ArPen_GetStoppedHealthZoneMultiplier(dmgZone);
             float shockZoneMultiplier = ArPen_GetStoppedShockZoneMultiplier(dmgZone);
@@ -250,6 +254,7 @@ modded class PlayerBase
         {
             Print("[ArPen] StoppedBaseDamage = " + stoppedBaseDamage.ToString());
             Print("[ArPen] BluntSeverity = " + bluntSeverity.ToString());
+            Print("[ArPen] BluntDepthRatio = " + hitResult.DepthRatio.ToString());
             Print("[ArPen] BluntHeadHealthMultiplier = " + ammoData.BluntHeadHealthMultiplier.ToString());
             Print("[ArPen] BluntTorsoHealthMultiplier = " + ammoData.BluntTorsoHealthMultiplier.ToString());
             Print("[ArPen] BluntHeadShockMultiplier = " + ammoData.BluntHeadShockMultiplier.ToString());
