@@ -150,13 +150,13 @@ class ArPenGraphRow
 
     protected int ThreatColor(string level)
     {
+        if (level.Contains("Sub-IIA")) return ARGB(255, 150, 220, 150);
         if (level.Contains("IIIA+")) return ARGB(255, 105, 220, 255);
         if (level.Contains("III+")) return ARGB(255, 255, 155, 70);
         if (level.Contains("IV")) return ARGB(255, 205, 92, 255);
         if (level.Contains("III")) return ARGB(255, 255, 215, 75);
         if (level.Contains("IIA")) return ARGB(255, 80, 220, 150);
         if (level.Contains("II")) return ARGB(255, 90, 160, 255);
-        if (level.Contains("Sub-IIA")) return ARGB(255, 150, 220, 150);
         return ARGB(255, 125, 125, 135);
     }
 
