@@ -223,10 +223,15 @@ modded class PlayerBase
 
             float healthZoneMultiplier = ArPen_GetStoppedHealthZoneMultiplier(dmgZone);
             float shockZoneMultiplier = ArPen_GetStoppedShockZoneMultiplier(dmgZone);
-            customHealthDamage = stoppedBaseDamage * healthZoneMultiplier * ammoData.BluntHealthMultiplier * bluntSeverity;
-            float bluntShockMultiplier = ammoData.BluntBodyShockMultiplier;
-            if (dmgZone == "Head" || dmgZone == "Brain")
+            bool isHeadHit = dmgZone == "Head" || dmgZone == "Brain";
+            float bluntHealthMultiplier = ammoData.BluntTorsoHealthMultiplier;
+            float bluntShockMultiplier = ammoData.BluntTorsoShockMultiplier;
+            if (isHeadHit)
+            {
+                bluntHealthMultiplier = ammoData.BluntHeadHealthMultiplier;
                 bluntShockMultiplier = ammoData.BluntHeadShockMultiplier;
+            }
+            customHealthDamage = stoppedBaseDamage * healthZoneMultiplier * bluntHealthMultiplier * bluntSeverity;
             customShockDamage = stoppedBaseDamage * shockZoneMultiplier * bluntShockMultiplier * bluntSeverity;
             customBloodDamage = 0.0;
         }
@@ -245,8 +250,10 @@ modded class PlayerBase
         {
             Print("[ArPen] StoppedBaseDamage = " + stoppedBaseDamage.ToString());
             Print("[ArPen] BluntSeverity = " + bluntSeverity.ToString());
+            Print("[ArPen] BluntHeadHealthMultiplier = " + ammoData.BluntHeadHealthMultiplier.ToString());
+            Print("[ArPen] BluntTorsoHealthMultiplier = " + ammoData.BluntTorsoHealthMultiplier.ToString());
             Print("[ArPen] BluntHeadShockMultiplier = " + ammoData.BluntHeadShockMultiplier.ToString());
-            Print("[ArPen] BluntBodyShockMultiplier = " + ammoData.BluntBodyShockMultiplier.ToString());
+            Print("[ArPen] BluntTorsoShockMultiplier = " + ammoData.BluntTorsoShockMultiplier.ToString());
         }
 
         string penetrationStatus = "UNARMORED";
