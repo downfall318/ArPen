@@ -224,7 +224,10 @@ modded class PlayerBase
             float healthZoneMultiplier = ArPen_GetStoppedHealthZoneMultiplier(dmgZone);
             float shockZoneMultiplier = ArPen_GetStoppedShockZoneMultiplier(dmgZone);
             customHealthDamage = stoppedBaseDamage * healthZoneMultiplier * ammoData.BluntHealthMultiplier * bluntSeverity;
-            customShockDamage = stoppedBaseDamage * shockZoneMultiplier * ammoData.BluntShockMultiplier * bluntSeverity;
+            float bluntShockMultiplier = ammoData.BluntBodyShockMultiplier;
+            if (dmgZone == "Head" || dmgZone == "Brain")
+                bluntShockMultiplier = ammoData.BluntHeadShockMultiplier;
+            customShockDamage = stoppedBaseDamage * shockZoneMultiplier * bluntShockMultiplier * bluntSeverity;
             customBloodDamage = 0.0;
         }
 
@@ -242,6 +245,8 @@ modded class PlayerBase
         {
             Print("[ArPen] StoppedBaseDamage = " + stoppedBaseDamage.ToString());
             Print("[ArPen] BluntSeverity = " + bluntSeverity.ToString());
+            Print("[ArPen] BluntHeadShockMultiplier = " + ammoData.BluntHeadShockMultiplier.ToString());
+            Print("[ArPen] BluntBodyShockMultiplier = " + ammoData.BluntBodyShockMultiplier.ToString());
         }
 
         string penetrationStatus = "UNARMORED";
