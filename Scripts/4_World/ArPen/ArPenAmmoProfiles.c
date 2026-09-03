@@ -53,9 +53,8 @@ class ArPenAmmoProfiles
         if (!s_File.Profiles)
             s_File.Profiles = new array<ref ArPenAmmoProfile>;
 
-        bool migrated = ApplyThreatMetadata();
         int added = AddTestProfiles();
-        if (!FileExist(FILE_PATH) || added > 0 || migrated)
+        if (!FileExist(FILE_PATH) || added > 0)
             Save();
         Print("[ArPen] Loaded " + s_File.Profiles.Count().ToString() + " ammo profiles; added " + added.ToString());
     }
@@ -120,6 +119,9 @@ class ArPenAmmoProfiles
 
     protected static int AddProfile(string ammoClass, string displayName, float velocity, float mass, float bc, float caliberMM, bool tracer, float damage, float decibels, float penMultiplier)
     {
+        // Do not write speculative defaults. Seed only classes loaded by DayZ or a mod.
+        if (!GetGame().ConfigIsExisting("CfgAmmo " + ammoClass))
+            return 0;
         foreach (ArPenAmmoProfile existing : s_File.Profiles)
         {
             if (existing && existing.AmmoClass == ammoClass)
@@ -139,22 +141,6 @@ class ArPenAmmoProfiles
         AssignThreatMetadata(profile);
         s_File.Profiles.Insert(profile);
         return 1;
-    }
-
-    protected static bool ApplyThreatMetadata()
-    {
-        if (s_File.Version >= 4)
-            return false;
-
-        foreach (ArPenAmmoProfile profile : s_File.Profiles)
-        {
-            ApplyCorrectedVanillaValues(profile);
-            AssignThreatMetadata(profile);
-        }
-
-        s_File.Version = 4;
-        Print("[ArPen] Migrated vanilla ammunition values and threat metadata v4");
-        return true;
     }
 
     protected static void AssignThreatMetadata(ArPenAmmoProfile profile)
@@ -185,33 +171,6 @@ class ArPenAmmoProfiles
             profile.ThreatLevel = "III+";
         else if (profile.AmmoClass.Contains("556x45") || profile.AmmoClass.Contains("545x39") || profile.AmmoClass.Contains("308Win") || profile.AmmoClass.Contains("762x39") || profile.AmmoClass.Contains("9x39"))
             profile.ThreatLevel = "III";
-    }
-
-    protected static void ApplyCorrectedVanillaValues(ArPenAmmoProfile profile)
-    {
-        if (profile.AmmoClass == "Bullet_308Win_AP")
-        {
-            profile.DisplayName = "7.62x51mm M993 AP";
-            profile.InitialVelocity = 930.0;
-            profile.BulletMassKG = 0.0082;
-            profile.BallisticCoefficient = 0.400;
-            profile.PenetrationMultiplier = 1.75;
-        }
-        else if (profile.AmmoClass == "Bullet_556x45_AP")
-        {
-            profile.DisplayName = "5.56x45mm M995 AP";
-            profile.InitialVelocity = 1000.0;
-            profile.BulletMassKG = 0.0034;
-            profile.BallisticCoefficient = 0.304;
-            profile.PenetrationMultiplier = 2.10;
-        }
-        else if (profile.AmmoClass == "Bullet_12GaugePellets")
-        {
-            profile.DisplayName = "12 Gauge Buckshot Pellet";
-            profile.BulletMassKG = 0.0035;
-            profile.BallisticCoefficient = 0.045;
-            profile.CaliberMM = 8.38;
-        }
     }
 
     static string GetEffectiveThreatLevel(ArPenAmmoData ammoData, float impactEnergyJ)

@@ -42,7 +42,9 @@ class ArPenArmorProfile
     float HelmetStoppingDistanceMM = 20.0;
     float HelmetTraumaLimitG = 400.0;
     float SurfaceAreaCM2 = 2500.0;
-    float TileSurfaceAreaCM2 = 625.0;
+    // Global metal-volume settings; no position-based dent sites are stored.
+    float DentDiameterMultiplier = 4.0;
+    float DepthDamageWeight = 0.0;
 };
 
 class ArPenArmorProfileFile
@@ -84,11 +86,10 @@ class ArPenArmorProfiles
         if (!s_File.Profiles)
             s_File.Profiles = new array<ref ArPenArmorProfile>;
 
-        bool migrated = ApplyVersion2TestValues();
         int removed = RemoveUnsupportedProfiles();
         int added = AddVanillaTestProfiles();
         added += EnrollLoadedArmorClasses();
-        if (!FileExist(FILE_PATH) || added > 0 || removed > 0 || migrated)
+        if (!FileExist(FILE_PATH) || added > 0 || removed > 0)
             Save();
 
         Print("[ArPen] Loaded " + s_File.Profiles.Count().ToString() + " armor profiles; added " + added.ToString() + "; removed " + removed.ToString());
@@ -140,7 +141,8 @@ class ArPenArmorProfiles
             data.HelmetStoppingDistanceMM = profile.HelmetStoppingDistanceMM;
             data.HelmetTraumaLimitG = profile.HelmetTraumaLimitG;
             data.SurfaceAreaCM2 = profile.SurfaceAreaCM2;
-            data.TileSurfaceAreaCM2 = profile.TileSurfaceAreaCM2;
+            data.DentDiameterMultiplier = profile.DentDiameterMultiplier;
+            data.DepthDamageWeight = profile.DepthDamageWeight;
             data.FirstHitResidualIntegrity = 0.75;
             data.SubsequentHitIntegrityRatio = 0.333333;
             data.CeramicDamageExponent = 1.75;
@@ -294,22 +296,6 @@ class ArPenArmorProfiles
         // reduction determines its custom health pool instead of Krupp.
         if (profile.UseSimpleHealthScaling)
             profile.ArmorHealth = profile.ArmorSchemaHealthCapacity;
-    }
-
-    protected static bool ApplyVersion2TestValues()
-    {
-        if (s_File.Version >= 12)
-            return false;
-
-        foreach (ArPenArmorProfile profile : s_File.Profiles)
-        {
-            ApplyClassDefaults(profile);
-            ApplyVanillaTestDefaults(profile);
-        }
-
-        s_File.Version = 12;
-        Print("[ArPen] Migrated profiles to hard-ballistic-only enrollment v12");
-        return true;
     }
 
     protected static int AddVanillaTestProfiles()

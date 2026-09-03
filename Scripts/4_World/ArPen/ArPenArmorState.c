@@ -1,222 +1,112 @@
-class ArPenDentSite
-{
-    vector ModelPosition;
-    float DepthMM;
-};
-
-class ArPenCeramicTileState
-{
-    vector ModelPosition;
-    int HitCount;
-    float Integrity = 1.0;
-};
-
 modded class ItemBase
 {
-    protected static const int ARPEN_STORE_VERSION = 1;
-    protected bool m_ArPenKruppInitialized;
+    protected static const int ARPEN_STORE_VERSION = 2;
+    protected bool m_ArPenStateInitialized;
     protected float m_ArPenCurrentKrupp;
     protected float m_ArPenCurrentArmorHealth;
-    protected ref array<ref ArPenDentSite> m_ArPenDentSites;
-    protected ref array<ref ArPenCeramicTileState> m_ArPenCeramicTiles;
+    protected float m_ArPenMetalLossVolumeMM3;
+    protected float m_ArPenDentVolumeMM3;
 
     override void OnStoreSave(ParamsWriteContext ctx)
     {
         super.OnStoreSave(ctx);
         ctx.Write(ARPEN_STORE_VERSION);
-        ctx.Write(m_ArPenKruppInitialized);
+        ctx.Write(m_ArPenStateInitialized);
         ctx.Write(m_ArPenCurrentKrupp);
         ctx.Write(m_ArPenCurrentArmorHealth);
-
-        int dentCount;
-        if (m_ArPenDentSites)
-            dentCount = m_ArPenDentSites.Count();
-        ctx.Write(dentCount);
-        for (int dentIndex = 0; dentIndex < dentCount; dentIndex++)
-        {
-            ctx.Write(m_ArPenDentSites[dentIndex].ModelPosition);
-            ctx.Write(m_ArPenDentSites[dentIndex].DepthMM);
-        }
-
-        int tileCount;
-        if (m_ArPenCeramicTiles)
-            tileCount = m_ArPenCeramicTiles.Count();
-        ctx.Write(tileCount);
-        for (int tileIndex = 0; tileIndex < tileCount; tileIndex++)
-        {
-            ctx.Write(m_ArPenCeramicTiles[tileIndex].ModelPosition);
-            ctx.Write(m_ArPenCeramicTiles[tileIndex].HitCount);
-            ctx.Write(m_ArPenCeramicTiles[tileIndex].Integrity);
-        }
+        ctx.Write(m_ArPenMetalLossVolumeMM3);
+        ctx.Write(m_ArPenDentVolumeMM3);
     }
 
     override bool OnStoreLoad(ParamsReadContext ctx, int version)
     {
         if (!super.OnStoreLoad(ctx, version))
             return false;
-
         int arPenVersion;
         if (!ctx.Read(arPenVersion))
-            return true; // Item was saved before ArPen persistence existed.
+            return true;
         if (arPenVersion < 1 || arPenVersion > ARPEN_STORE_VERSION)
             return false;
-        if (!ctx.Read(m_ArPenKruppInitialized) || !ctx.Read(m_ArPenCurrentKrupp) || !ctx.Read(m_ArPenCurrentArmorHealth))
+        if (!ctx.Read(m_ArPenStateInitialized) || !ctx.Read(m_ArPenCurrentKrupp) || !ctx.Read(m_ArPenCurrentArmorHealth))
             return false;
 
-        int dentCount;
-        if (!ctx.Read(dentCount) || dentCount < 0 || dentCount > 256)
-            return false;
-        m_ArPenDentSites = new array<ref ArPenDentSite>;
-        for (int dentIndex = 0; dentIndex < dentCount; dentIndex++)
+        if (arPenVersion == 1)
         {
-            ArPenDentSite dent = new ArPenDentSite();
-            if (!ctx.Read(dent.ModelPosition) || !ctx.Read(dent.DepthMM))
+            // Consume legacy location-based data, but do not retain or use it.
+            int dentCount;
+            if (!ctx.Read(dentCount) || dentCount < 0 || dentCount > 256)
                 return false;
-            m_ArPenDentSites.Insert(dent);
+            for (int dentIndex = 0; dentIndex < dentCount; dentIndex++)
+            {
+                vector oldDentPosition;
+                float oldDentDepth;
+                if (!ctx.Read(oldDentPosition) || !ctx.Read(oldDentDepth))
+                    return false;
+            }
+            int tileCount;
+            if (!ctx.Read(tileCount) || tileCount < 0 || tileCount > 256)
+                return false;
+            for (int tileIndex = 0; tileIndex < tileCount; tileIndex++)
+            {
+                vector oldTilePosition;
+                int oldHitCount;
+                float oldIntegrity;
+                if (!ctx.Read(oldTilePosition) || !ctx.Read(oldHitCount) || !ctx.Read(oldIntegrity))
+                    return false;
+            }
+            return true;
         }
+        return ctx.Read(m_ArPenMetalLossVolumeMM3) && ctx.Read(m_ArPenDentVolumeMM3);
+    }
 
-        int tileCount;
-        if (!ctx.Read(tileCount) || tileCount < 0 || tileCount > 256)
-            return false;
-        m_ArPenCeramicTiles = new array<ref ArPenCeramicTileState>;
-        for (int tileIndex = 0; tileIndex < tileCount; tileIndex++)
-        {
-            ArPenCeramicTileState tile = new ArPenCeramicTileState();
-            if (!ctx.Read(tile.ModelPosition) || !ctx.Read(tile.HitCount) || !ctx.Read(tile.Integrity))
-                return false;
-            m_ArPenCeramicTiles.Insert(tile);
-        }
-        return true;
+    protected void ArPen_EnsureState(ArPenArmorData armorData)
+    {
+        if (m_ArPenStateInitialized)
+            return;
+        m_ArPenCurrentKrupp = armorData.BaseKrupp;
+        m_ArPenCurrentArmorHealth = armorData.BaseArmorHealth;
+        m_ArPenMetalLossVolumeMM3 = 0.0;
+        m_ArPenDentVolumeMM3 = 0.0;
+        m_ArPenStateInitialized = true;
     }
 
     float ArPen_GetCurrentKrupp(ArPenArmorData armorData)
     {
-        if (!m_ArPenKruppInitialized)
-        {
-            m_ArPenCurrentKrupp = armorData.BaseKrupp;
-            m_ArPenCurrentArmorHealth = armorData.BaseArmorHealth;
-            m_ArPenKruppInitialized = true;
-        }
+        ArPen_EnsureState(armorData);
         return m_ArPenCurrentKrupp;
     }
 
     float ArPen_GetCurrentArmorHealth(ArPenArmorData armorData)
     {
-        ArPen_GetCurrentKrupp(armorData);
+        ArPen_EnsureState(armorData);
         return m_ArPenCurrentArmorHealth;
     }
 
-    float ArPen_GetLocalDentDepth(vector modelPosition, float radiusMM)
+    float ArPen_GetMetalLossVolumeMM3(ArPenArmorData armorData)
     {
-        if (!m_ArPenDentSites)
-            return 0.0;
-
-        float radiusM = Math.Max(radiusMM, 0.0) * 0.001;
-        float depthMM;
-        foreach (ArPenDentSite site : m_ArPenDentSites)
-        {
-            if (site && vector.Distance(site.ModelPosition, modelPosition) <= radiusM)
-                depthMM = Math.Max(depthMM, site.DepthMM);
-        }
-        return depthMM;
+        ArPen_EnsureState(armorData);
+        return m_ArPenMetalLossVolumeMM3;
     }
 
-    void ArPen_RecordDent(vector modelPosition, float radiusMM, float addedDepthMM)
+    float ArPen_GetDentVolumeMM3(ArPenArmorData armorData)
     {
-        if (addedDepthMM <= 0.0)
-            return;
-        if (!m_ArPenDentSites)
-            m_ArPenDentSites = new array<ref ArPenDentSite>;
-
-        float radiusM = Math.Max(radiusMM, 0.0) * 0.001;
-        foreach (ArPenDentSite site : m_ArPenDentSites)
-        {
-            if (site && vector.Distance(site.ModelPosition, modelPosition) <= radiusM)
-            {
-                site.DepthMM = site.DepthMM + addedDepthMM;
-                return;
-            }
-        }
-
-        ArPenDentSite newSite = new ArPenDentSite();
-        newSite.ModelPosition = modelPosition;
-        newSite.DepthMM = addedDepthMM;
-        m_ArPenDentSites.Insert(newSite);
+        ArPen_EnsureState(armorData);
+        return m_ArPenDentVolumeMM3;
     }
 
-    protected float ArPen_GetTileRadiusM(float tileSurfaceAreaCM2)
+    void ArPen_ApplyDamage(ArPenArmorData armorData, float armorDamage, float addedMetalLossVolumeMM3 = 0.0, float addedDentVolumeMM3 = 0.0)
     {
-        // Treat the configured tile area as a circular lookup footprint.
-        float radiusCM = Math.Sqrt(Math.Max(tileSurfaceAreaCM2, 1.0) / Math.PI);
-        return radiusCM * 0.01;
-    }
+        ArPen_EnsureState(armorData);
+        float appliedDamage = Math.Min(Math.Max(armorDamage, 0.0), m_ArPenCurrentArmorHealth);
+        m_ArPenCurrentArmorHealth = Math.Max(0.0, m_ArPenCurrentArmorHealth - appliedDamage);
+        m_ArPenMetalLossVolumeMM3 = Math.Max(0.0, m_ArPenMetalLossVolumeMM3 + Math.Max(addedMetalLossVolumeMM3, 0.0));
+        m_ArPenDentVolumeMM3 = Math.Max(0.0, m_ArPenDentVolumeMM3 + Math.Max(addedDentVolumeMM3, 0.0));
 
-    ArPenCeramicTileState ArPen_FindCeramicTile(vector modelPosition, float tileSurfaceAreaCM2)
-    {
-        if (!m_ArPenCeramicTiles)
-            return NULL;
+        // Hardness itself is never reduced. Ceramic/polymer effective Krupp is
+        // derived from remaining health; metal always uses BaseKrupp.
+        m_ArPenCurrentKrupp = armorData.BaseKrupp;
 
-        float radiusM = ArPen_GetTileRadiusM(tileSurfaceAreaCM2);
-        foreach (ArPenCeramicTileState tile : m_ArPenCeramicTiles)
-        {
-            if (tile && vector.Distance(tile.ModelPosition, modelPosition) <= radiusM)
-                return tile;
-        }
-        return NULL;
-    }
-
-    float ArPen_GetCeramicTileIntegrity(vector modelPosition, float tileSurfaceAreaCM2)
-    {
-        ArPenCeramicTileState tile = ArPen_FindCeramicTile(modelPosition, tileSurfaceAreaCM2);
-        if (!tile)
-            return 1.0;
-        return Math.Clamp(tile.Integrity, 0.0, 1.0);
-    }
-
-    int ArPen_GetCeramicTileHitCount(vector modelPosition, float tileSurfaceAreaCM2)
-    {
-        ArPenCeramicTileState tile = ArPen_FindCeramicTile(modelPosition, tileSurfaceAreaCM2);
-        if (!tile)
-            return 0;
-        return tile.HitCount;
-    }
-
-    void ArPen_RecordCeramicTileHit(vector modelPosition, float tileSurfaceAreaCM2, float resultingIntegrity)
-    {
-        if (!m_ArPenCeramicTiles)
-            m_ArPenCeramicTiles = new array<ref ArPenCeramicTileState>;
-
-        ArPenCeramicTileState tile = ArPen_FindCeramicTile(modelPosition, tileSurfaceAreaCM2);
-        if (!tile)
-        {
-            tile = new ArPenCeramicTileState();
-            tile.ModelPosition = modelPosition;
-            m_ArPenCeramicTiles.Insert(tile);
-        }
-
-        tile.HitCount++;
-        tile.Integrity = Math.Clamp(resultingIntegrity, 0.0, 1.0);
-    }
-
-    void ArPen_ApplyAreaIntegrityLoss(ArPenArmorData armorData, float armorHealthLoss, float kruppLoss)
-    {
-        ArPen_GetCurrentKrupp(armorData);
-        m_ArPenCurrentArmorHealth = Math.Max(0.0, m_ArPenCurrentArmorHealth - Math.Max(armorHealthLoss, 0.0));
-        m_ArPenCurrentKrupp = Math.Max(0.0, m_ArPenCurrentKrupp - Math.Max(kruppLoss, 0.0));
-
-        float healthFraction = Math.Max(armorHealthLoss, 0.0) / Math.Max(armorData.BaseArmorHealth, 1.0);
-        float itemHealthLoss = GetMaxHealth("", "Health") * healthFraction;
-        if (itemHealthLoss > 0.0)
-            DecreaseHealth("", "Health", itemHealthLoss);
-    }
-
-    void ArPen_AbsorbDamage(ArPenArmorData armorData, float absorbedDamage)
-    {
-        float currentKrupp = ArPen_GetCurrentKrupp(armorData);
-        m_ArPenCurrentKrupp = Math.Max(0.0, currentKrupp - (absorbedDamage * armorData.KruppLossPerAbsorbedDamage));
-        m_ArPenCurrentArmorHealth = Math.Max(0.0, m_ArPenCurrentArmorHealth - absorbedDamage);
-        float itemDamageRatio = absorbedDamage / Math.Max(armorData.BaseArmorHealth, 1.0);
-        float itemDamage = GetMaxHealth("", "Health") * itemDamageRatio * armorData.ItemDamagePerAbsorbedDamage;
+        float itemDamage = GetMaxHealth("", "Health") * (appliedDamage / Math.Max(armorData.BaseArmorHealth, 1.0));
         if (itemDamage > 0.0)
             DecreaseHealth("", "Health", itemDamage);
     }

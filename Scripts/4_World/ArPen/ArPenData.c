@@ -36,7 +36,8 @@ class ArPenArmorData
     float HelmetStoppingDistanceMM;
     float HelmetTraumaLimitG;
     float SurfaceAreaCM2;
-    float TileSurfaceAreaCM2;
+    float DentDiameterMultiplier;
+    float DepthDamageWeight;
     float FirstHitResidualIntegrity;
     float SubsequentHitIntegrityRatio;
     float CeramicDamageExponent;
@@ -115,7 +116,8 @@ class ArPenConfig
         data.HelmetStoppingDistanceMM = ReadFloat(path, "helmetStoppingDistanceMM", 20.0);
         data.HelmetTraumaLimitG = ReadFloat(path, "helmetTraumaLimitG", 400.0);
         data.SurfaceAreaCM2 = ReadFloat(path, "surfaceAreaCM2", 2500.0);
-        data.TileSurfaceAreaCM2 = ReadFloat(path, "tileSurfaceAreaCM2", 625.0);
+        data.DentDiameterMultiplier = ReadFloat(path, "dentDiameterMultiplier", 4.0);
+        data.DepthDamageWeight = ReadFloat(path, "depthDamageWeight", 0.0);
         data.FirstHitResidualIntegrity = ReadFloat(path, "firstHitResidualIntegrity", 0.75);
         data.SubsequentHitIntegrityRatio = ReadFloat(path, "subsequentHitIntegrityRatio", 0.333333);
         data.CeramicDamageExponent = ReadFloat(path, "ceramicDamageExponent", 1.75);
