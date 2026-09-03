@@ -1,5 +1,28 @@
 modded class PlayerBase
 {
+    protected float ArPen_GetStoppedHealthZoneMultiplier(string damageZone)
+    {
+        if (damageZone == "Head" || damageZone == "Brain")
+            return 2.0;
+        if (damageZone == "LeftArm" || damageZone == "RightArm" || damageZone == "LeftHand" || damageZone == "RightHand")
+            return 0.1;
+        if (damageZone == "LeftLeg" || damageZone == "RightLeg")
+            return 0.3;
+        if (damageZone == "LeftFoot" || damageZone == "RightFoot")
+            return 0.12;
+        return 1.0;
+    }
+
+    protected float ArPen_GetStoppedShockZoneMultiplier(string damageZone)
+    {
+        if (damageZone == "Head" || damageZone == "Brain")
+            return 3.0;
+        if (damageZone == "LeftArm" || damageZone == "RightArm" || damageZone == "LeftLeg" || damageZone == "RightLeg")
+            return 0.33;
+        if (damageZone == "LeftHand" || damageZone == "RightHand" || damageZone == "LeftFoot" || damageZone == "RightFoot")
+            return 0.1;
+        return 1.0;
+    }
 
     override bool EEOnDamageCalculated(TotalDamageResult damageResult, int damageType, EntityAI source, int component, string dmgZone, string ammo, vector modelPos, float speedCoef)
     {
@@ -173,6 +196,8 @@ modded class PlayerBase
         float customHealthDamage;
         float customBloodDamage;
         float customShockDamage;
+        float bluntSeverity;
+        float stoppedBaseDamage;
 
         if (hitResult.Penetrated)
         {
@@ -186,14 +211,21 @@ modded class PlayerBase
         }
         else
         {
-            customHealthDamage = 0.0;
+            // Rebuild stopped-hit trauma from ArPen inputs. Do not reuse
+            // damageResult here: it already contains DayZ GlobalArmor multipliers.
+            float speedRatio = hitResult.ImpactVelocity / Math.Max(ammoData.InitialVelocity, 0.001);
+            stoppedBaseDamage = ammoData.BaseDamage * speedRatio * speedRatio;
+
+            // A stopped projectile transfers all residual energy to armor/body.
+            // Current PlateThresholdJ already reflects ceramic/polymer health.
+            float armorLoad = (hitResult.ImpactEnergyJ * hitResult.TransferredEnergyFraction) / Math.Max(hitResult.PlateThresholdJ, 1.0);
+            bluntSeverity = Math.Pow(Math.Clamp(armorLoad, 0.0, 1.0), 1.25);
+
+            float healthZoneMultiplier = ArPen_GetStoppedHealthZoneMultiplier(dmgZone);
+            float shockZoneMultiplier = ArPen_GetStoppedShockZoneMultiplier(dmgZone);
+            customHealthDamage = stoppedBaseDamage * healthZoneMultiplier * ammoData.BluntHealthMultiplier * bluntSeverity;
+            customShockDamage = stoppedBaseDamage * shockZoneMultiplier * ammoData.BluntShockMultiplier * bluntSeverity;
             customBloodDamage = 0.0;
-            customShockDamage = ammoData.BaseDamage * ammoData.BluntShockMultiplier;
-            if (enrolledArmor && armorData.IsHelmet)
-            {
-                float traumaRatio = hitResult.TransmittedAccelerationG / Math.Max(armorData.HelmetTraumaLimitG, 1.0);
-                customShockDamage = customShockDamage * Math.Clamp(traumaRatio, 0.25, 2.0);
-            }
         }
 
         if (customHealthDamage > 0.0)
@@ -206,6 +238,11 @@ modded class PlayerBase
         Print("[ArPen] CustomHealthDamage = " + customHealthDamage.ToString());
         Print("[ArPen] CustomBloodDamage = " + customBloodDamage.ToString());
         Print("[ArPen] CustomShockDamage = " + customShockDamage.ToString());
+        if (!hitResult.Penetrated)
+        {
+            Print("[ArPen] StoppedBaseDamage = " + stoppedBaseDamage.ToString());
+            Print("[ArPen] BluntSeverity = " + bluntSeverity.ToString());
+        }
 
         string penetrationStatus = "UNARMORED";
         if (enrolledArmor)
@@ -254,6 +291,8 @@ modded class PlayerBase
             }
         }
 
+        if (!hitResult.Penetrated)
+            message = message + "\nBlunt base/severity: " + stoppedBaseDamage.ToString() + " / " + bluntSeverity.ToString();
         message = message + "\nDamage H/B/S: " + customHealthDamage.ToString() + "/" + customBloodDamage.ToString() + "/" + customShockDamage.ToString();
         string notificationTitle = "ArPen Damage Event";
         if (enrolledArmor)
