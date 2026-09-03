@@ -15,9 +15,10 @@ class ArPenAmmoProfile
     float BloodDamageMultiplier = 0.5;
     float ShockDamageMultiplier = 1.0;
     // Applied to custom stopped-hit trauma, independently of DayZ GlobalArmor.
-    float BluntHealthMultiplier = 0.10;
+    float BluntHeadHealthMultiplier = 0.10;
+    float BluntTorsoHealthMultiplier = 0.10;
     float BluntHeadShockMultiplier = 0.35;
-    float BluntBodyShockMultiplier = 0.35;
+    float BluntTorsoShockMultiplier = 0.35;
     string ThreatLevel = "Unrated";
     float ReferenceThreatEnergyJ;
 };
@@ -82,9 +83,10 @@ class ArPenAmmoProfiles
             data.PenetrationMultiplier = profile.PenetrationMultiplier;
             data.BloodDamageMultiplier = profile.BloodDamageMultiplier;
             data.ShockDamageMultiplier = profile.ShockDamageMultiplier;
-            data.BluntHealthMultiplier = profile.BluntHealthMultiplier;
+            data.BluntHeadHealthMultiplier = profile.BluntHeadHealthMultiplier;
+            data.BluntTorsoHealthMultiplier = profile.BluntTorsoHealthMultiplier;
             data.BluntHeadShockMultiplier = profile.BluntHeadShockMultiplier;
-            data.BluntBodyShockMultiplier = profile.BluntBodyShockMultiplier;
+            data.BluntTorsoShockMultiplier = profile.BluntTorsoShockMultiplier;
             data.ThreatLevel = profile.ThreatLevel;
             data.ReferenceThreatEnergyJ = profile.ReferenceThreatEnergyJ;
             return data.InitialVelocity > 0.0 && data.BulletMassKG > 0.0 && data.CaliberMM > 0.0;
