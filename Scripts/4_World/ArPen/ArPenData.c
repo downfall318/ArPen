@@ -59,9 +59,10 @@ class ArPenAmmoData
     float PenetrationMultiplier;
     float BloodDamageMultiplier;
     float ShockDamageMultiplier;
-    float BluntHealthMultiplier;
+    float BluntHeadHealthMultiplier;
+    float BluntTorsoHealthMultiplier;
     float BluntHeadShockMultiplier;
-    float BluntBodyShockMultiplier;
+    float BluntTorsoShockMultiplier;
     string ThreatLevel;
     float ReferenceThreatEnergyJ;
 };
@@ -175,9 +176,10 @@ class ArPenConfig
         data.PenetrationMultiplier = ReadFloat(path, "penetrationMultiplier", 1.0);
         data.BloodDamageMultiplier = ReadFloat(path, "bloodDamageMultiplier", 0.5);
         data.ShockDamageMultiplier = ReadFloat(path, "shockDamageMultiplier", 1.0);
-        data.BluntHealthMultiplier = ReadFloat(path, "bluntHealthMultiplier", 0.10);
+        data.BluntHeadHealthMultiplier = ReadFloat(path, "bluntHeadHealthMultiplier", 0.10);
+        data.BluntTorsoHealthMultiplier = ReadFloat(path, "bluntTorsoHealthMultiplier", 0.10);
         data.BluntHeadShockMultiplier = ReadFloat(path, "bluntHeadShockMultiplier", 0.35);
-        data.BluntBodyShockMultiplier = ReadFloat(path, "bluntBodyShockMultiplier", 0.35);
+        data.BluntTorsoShockMultiplier = ReadFloat(path, "bluntTorsoShockMultiplier", 0.35);
         data.ThreatLevel = ReadString(path, "threatLevel", "Unrated");
         data.ReferenceThreatEnergyJ = ReadFloat(path, "referenceThreatEnergyJ", 0.0);
         return data.Enabled && !data.UseLegacyFallback && data.InitialVelocity > 0.0 && data.BulletMassKG > 0.0 && data.CaliberMM > 0.0;
