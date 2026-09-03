@@ -282,32 +282,6 @@ class ArPenAmmoProfiles
         return "Sub-IIA";
     }
 
-    static void BuildEnabledClassList(out array<string> classes)
-    {
-        Initialize();
-        classes = new array<string>;
-        foreach (ArPenAmmoProfile profile : s_File.Profiles)
-        {
-            if (profile && profile.Enabled && !profile.UseLegacyFallback)
-                classes.Insert(profile.AmmoClass);
-        }
-    }
-
-    static string GetDisplayName(string ammoClass)
-    {
-        Initialize();
-        foreach (ArPenAmmoProfile profile : s_File.Profiles)
-        {
-            if (profile && profile.AmmoClass == ammoClass)
-            {
-                if (profile.DisplayName != "")
-                    return profile.DisplayName;
-                return profile.AmmoClass;
-            }
-        }
-        return ammoClass;
-    }
-
     protected static void Save()
     {
         MakeDirectory(DIRECTORY);
