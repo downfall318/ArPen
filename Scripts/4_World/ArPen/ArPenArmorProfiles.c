@@ -246,7 +246,6 @@ class ArPenArmorProfiles
             profile.HelmetStoppingDistanceMM = 20.0;
             profile.HelmetTraumaLimitG = 400.0;
             profile.SurfaceAreaCM2 = 1800.0;
-            profile.TileSurfaceAreaCM2 = 1800.0;
         }
 
         // Unity torso armor: 0.024 m = 24 mm, health pool 800.
