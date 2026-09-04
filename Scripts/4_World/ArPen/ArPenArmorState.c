@@ -64,7 +64,10 @@ modded class ItemBase
         if (m_ArPenStateInitialized)
             return;
         m_ArPenCurrentKrupp = armorData.BaseKrupp;
-        m_ArPenCurrentArmorHealth = armorData.BaseArmorHealth;
+        // Begin from the item's real condition so a pre-damaged or spawned
+        // item cannot receive a hidden full armor-health pool.
+        float itemHealth01 = Math.Clamp(GetHealth01("", "Health"), 0.0, 1.0);
+        m_ArPenCurrentArmorHealth = armorData.BaseArmorHealth * itemHealth01;
         m_ArPenMetalLossVolumeMM3 = 0.0;
         m_ArPenDentVolumeMM3 = 0.0;
         m_ArPenStateInitialized = true;
@@ -99,8 +102,12 @@ modded class ItemBase
         ArPen_EnsureState(armorData);
         float appliedDamage = Math.Min(Math.Max(armorDamage, 0.0), m_ArPenCurrentArmorHealth);
         m_ArPenCurrentArmorHealth = Math.Max(0.0, m_ArPenCurrentArmorHealth - appliedDamage);
-        m_ArPenMetalLossVolumeMM3 = Math.Max(0.0, m_ArPenMetalLossVolumeMM3 + Math.Max(addedMetalLossVolumeMM3, 0.0));
-        m_ArPenDentVolumeMM3 = Math.Max(0.0, m_ArPenDentVolumeMM3 + Math.Max(addedDentVolumeMM3, 0.0));
+
+        float panelAreaMM2 = Math.Max(armorData.SurfaceAreaCM2, 1.0) * 100.0;
+        float panelVolumeMM3 = panelAreaMM2 * Math.Max(armorData.ThicknessMM, 0.0);
+        float failureVolumeMM3 = panelVolumeMM3 * 0.25;
+        m_ArPenMetalLossVolumeMM3 = Math.Min(failureVolumeMM3, Math.Max(0.0, m_ArPenMetalLossVolumeMM3 + Math.Max(addedMetalLossVolumeMM3, 0.0)));
+        m_ArPenDentVolumeMM3 = Math.Min(panelVolumeMM3, Math.Max(0.0, m_ArPenDentVolumeMM3 + Math.Max(addedDentVolumeMM3, 0.0)));
 
         // Hardness itself is never reduced. Ceramic/polymer effective Krupp is
         // derived from remaining health; metal always uses BaseKrupp.

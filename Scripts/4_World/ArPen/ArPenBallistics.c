@@ -169,7 +169,7 @@ class ArPenBallistics
             float depthBoost = 1.0;
             if (result.EnergyFraction > 0.000001)
                 depthBoost = Math.Max(0.25, severity / result.EnergyFraction);
-            result.ArmorDamage = Math.Min(result.CurrentArmorHealth, rawDamage * penetrationFactor * depthBoost);
+            result.ArmorDamage = Math.Min(result.CurrentArmorHealth, Math.Min(result.BaseArmorHealth, rawDamage * penetrationFactor * depthBoost));
         }
 
         if (result.CurrentArmorHealth - result.ArmorDamage <= Math.Max(0.5, result.BaseArmorHealth * 0.002))
