@@ -225,7 +225,7 @@ class ArPenArmorProfiles
         // Unity test helmet: 0.01016 m = 10.16 mm.
         if (IsModernBallisticHelmet(profile.ArmorClass))
         {
-            profile.Krupp = 1400.0;
+            profile.Krupp = 1100.0;
             profile.ArmorHealth = 100.0;
             profile.ThicknessMM = 10.16;
             profile.MinHealthFactor = 0.35;
@@ -253,7 +253,7 @@ class ArPenArmorProfiles
         // so all enrolled Vest classes are valid torso-armor test candidates.
         if (profile.ArmorClass.Contains("Vest") || profile.ArmorClass.Contains("PlateCarrier"))
         {
-            profile.Krupp = 2000.0;
+            profile.Krupp = 1500.0;
             profile.ArmorHealth = 800.0;
             profile.ThicknessMM = 24.0;
             profile.MinHealthFactor = 0.35;
@@ -300,10 +300,10 @@ class ArPenArmorProfiles
     protected static int AddVanillaTestProfiles()
     {
         int added;
-        added += AddVanillaArmor("PlateCarrierVest", "III", 2000.0, 800.0, 24.0, "silicon_carbide", "Ceramic");
-        added += AddVanillaArmor("BallisticHelmet_ColorBase", "IIIA", 1400.0, 100.0, 10.16, "uhmwpe", "Polymer");
-        added += AddVanillaArmor("GorkaHelmet", "IIIA", 1400.0, 100.0, 10.16, "uhmwpe", "Polymer");
-        added += AddVanillaArmor("Mich2001Helmet", "IIIA", 1400.0, 100.0, 10.16, "uhmwpe", "Polymer");
+        added += AddVanillaArmor("PlateCarrierVest", "III", 1500.0, 800.0, 24.0, "silicon_carbide", "Ceramic");
+        added += AddVanillaArmor("BallisticHelmet_ColorBase", "IIIA", 1100.0, 100.0, 10.16, "uhmwpe", "Polymer");
+        added += AddVanillaArmor("GorkaHelmet", "IIIA", 1100.0, 100.0, 10.16, "uhmwpe", "Polymer");
+        added += AddVanillaArmor("Mich2001Helmet", "IIIA", 1100.0, 100.0, 10.16, "uhmwpe", "Polymer");
         added += AddVanillaArmor("Ssh68Helmet", "Fragment", 6000.0, 85.0, 1.5, "ar500_steel", "Steel");
         return added;
     }
@@ -395,7 +395,7 @@ class ArPenArmorProfiles
             profile.IsSoftArmor = false;
             profile.UseSimpleHealthScaling = false;
             profile.ArmorLevel = "III";
-            profile.Krupp = 2000.0;
+            profile.Krupp = 1500.0;
             profile.ArmorHealth = 800.0;
             profile.ThicknessMM = 24.0;
             profile.MaterialID = "silicon_carbide";
@@ -406,7 +406,7 @@ class ArPenArmorProfiles
             profile.IsSoftArmor = false;
             profile.UseSimpleHealthScaling = false;
             profile.ArmorLevel = "IIIA";
-            profile.Krupp = 1400.0;
+            profile.Krupp = 1100.0;
             profile.ArmorHealth = 100.0;
             profile.ThicknessMM = 10.16;
             profile.MaterialID = "uhmwpe";
