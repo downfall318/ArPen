@@ -156,12 +156,6 @@ modded class PlayerBase
         // GlobalArmor calculation and damage application.
         if (hasArmorProfile && armorData.IsSoftArmor)
         {
-            string softMessage = "Event: ARMOR HIT\nAmmo: " + ammo;
-            softMessage = softMessage + "\nMuzzle threat: " + ammoData.ThreatLevel;
-            softMessage = softMessage + "\nImpact threat: " + effectiveThreatLevel;
-            softMessage = softMessage + "\nZone: " + dmgZone + "\nArmor: " + armor.GetType();
-            softMessage = softMessage + "\nClass: SOFT ARMOR (native damage)";
-            NotificationSystem.SendNotificationToPlayerIdentityExtended(GetIdentity(), 12.0, "ArPen Armor Hit", softMessage, "");
             Print("[ArPen] ARMOR HIT | SOFT ARMOR FALLBACK | " + armor.GetType());
             return super.EEOnDamageCalculated(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
         }
@@ -307,52 +301,6 @@ modded class PlayerBase
             else
                 penetrationStatus = "STOPPED";
         }
-
-        string message = "Event: " + penetrationStatus + "\nAmmo: " + ammo + " | Zone: " + dmgZone;
-        message = message + "\nMuzzle threat: " + ammoData.ThreatLevel;
-        message = message + "\nImpact threat: " + hitResult.EffectiveThreatLevel;
-        message = message + "\nStatus: " + penetrationStatus;
-        message = message + "\nV: " + hitResult.ImpactVelocity.ToString() + " -> " + hitResult.ExitVelocity.ToString() + " m/s";
-
-        if (enrolledArmor)
-        {
-            message = message + "\nArmor: " + armor.GetType();
-            message = message + "\nArmor level: " + armorData.ArmorLevel;
-            message = message + "\nSchema health damage: " + armorData.ArmorSchemaHealthDamageMultiplier.ToString();
-            message = message + "\nSchema armor HP: " + armorData.ArmorSchemaHealthCapacity.ToString();
-            message = message + "\nMaterial: " + armorData.MaterialID + " (" + armorData.MaterialType + ")";
-            message = message + "\nHardness: " + hitResult.CurrentKrupp.ToString() + " -> " + postKrupp.ToString();
-            message = message + "\nEffective K: " + hitResult.EffectiveKrupp.ToString();
-            message = message + "\nThickness: " + armorData.ThicknessMM.ToString() + " mm";
-            message = message + "\nArmor HP: " + hitResult.CurrentArmorHealth.ToString() + " -> " + postArmorHealth.ToString() + " / " + hitResult.BaseArmorHealth.ToString();
-            message = message + "\nItem HP: " + hitResult.ItemHealth.ToString() + " -> " + postItemHealth.ToString() + " / " + hitResult.ItemMaxHealth.ToString();
-            message = message + "\nHealth factor: " + hitResult.ArmorHealth01.ToString();
-            message = message + "\nPENMAX: " + hitResult.PenetrationDistanceMM.ToString() + " mm vs " + armorData.ThicknessMM.ToString() + " mm";
-            message = message + "\nArmor damage: " + hitResult.ArmorDamage.ToString();
-            if (!hitResult.Penetrated)
-            {
-                message = message + "\nDeformation: " + hitResult.DeformationMM.ToString() + " mm";
-                message = message + "\nEnergy: " + hitResult.ImpactEnergyJ.ToString() + " / " + hitResult.PlateThresholdJ.ToString() + " J";
-                message = message + "\nBrittleness: " + hitResult.Brittleness.ToString();
-                message = message + "\nCrack radius: " + hitResult.CrackRadiusMM.ToString() + " mm";
-                if (armorData.MaterialType == "Ceramic")
-                {
-                    message = message + "\nHealth-scaled ceramic damage: " + hitResult.DamageFractionOfRemaining.ToString();
-                }
-                if (armorData.MaterialType == "Steel")
-                    message = message + "\nMetal volume loss: +" + hitResult.AddedMetalLossVolumeMM3.ToString() + " mm3";
-                if (armorData.IsHelmet)
-                    message = message + "\nHelmet trauma: " + hitResult.TransmittedAccelerationG.ToString() + " g / " + armorData.HelmetTraumaLimitG.ToString() + " g";
-            }
-        }
-
-        if (!hitResult.Penetrated)
-            message = message + "\nBlunt base/severity: " + stoppedBaseDamage.ToString() + " / " + bluntSeverity.ToString();
-        message = message + "\nDamage H/B/S: " + customHealthDamage.ToString() + "/" + customBloodDamage.ToString() + "/" + customShockDamage.ToString();
-        string notificationTitle = "ArPen Damage Event";
-        if (enrolledArmor)
-            notificationTitle = "ArPen Armor Hit";
-        NotificationSystem.SendNotificationToPlayerIdentityExtended(GetIdentity(), 12.0, notificationTitle, message, "");
 
         Print("[ArPen] Formula: B=(V*sqrt(M))/(Keff*sqrt(C))*PM");
         Print("[ArPen] PenetrationStatus = " + penetrationStatus);
