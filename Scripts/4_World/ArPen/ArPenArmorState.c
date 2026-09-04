@@ -97,6 +97,12 @@ modded class ItemBase
         return m_ArPenDentVolumeMM3;
     }
 
+    protected void ArPen_ApplyItemDamage(float itemDamage)
+    {
+        if (itemDamage > 0.0)
+            DecreaseHealth("", "Health", itemDamage);
+    }
+
     void ArPen_ApplyDamage(ArPenArmorData armorData, float armorDamage, float addedMetalLossVolumeMM3 = 0.0, float addedDentVolumeMM3 = 0.0)
     {
         ArPen_EnsureState(armorData);
@@ -115,6 +121,12 @@ modded class ItemBase
 
         float itemDamage = GetMaxHealth("", "Health") * (appliedDamage / Math.Max(armorData.BaseArmorHealth, 1.0));
         if (itemDamage > 0.0)
-            DecreaseHealth("", "Health", itemDamage);
+        {
+            // Ruining an armor item from inside PlayerBase's active damage
+            // transaction can make DayZ re-evaluate the same projectile and
+            // emit duplicate player hits. Keep armor state synchronous, but
+            // defer the visible item-health transition until the callback ends.
+            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(ArPen_ApplyItemDamage, 0, false, itemDamage);
+        }
     }
 };
