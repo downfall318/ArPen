@@ -96,8 +96,27 @@ class ArPenBallistics
 
         result.ItemHealth = armorItem.GetHealth("", "Health");
         result.ItemMaxHealth = armorItem.GetMaxHealth("", "Health");
-        result.CurrentArmorHealth = armorItem.ArPen_GetCurrentArmorHealth(armorData);
         result.BaseArmorHealth = Math.Max(armorData.BaseArmorHealth, 0.001);
+
+        // Ruined armor has no ballistic resistance. Do this before deriving
+        // effective Krupp or thickness so a zero-health item cannot stop a hit
+        // through the normal depth calculation.
+        if (armorItem.IsRuined() || result.ItemHealth <= 0.0)
+        {
+            result.CurrentArmorHealth = 0.0;
+            result.ArmorHealth01 = 0.0;
+            result.CurrentKrupp = armorData.BaseKrupp;
+            result.EffectiveKrupp = 0.0;
+            result.EffectiveThicknessMM = 0.0;
+            result.ExitVelocity = result.ImpactVelocity;
+            result.DepthRatio = 1.0;
+            result.TransferredEnergyFraction = 0.0;
+            result.Penetrated = true;
+            result.DamageMultiplier = Math.Clamp(result.ImpactVelocity / Math.Max(ammoData.InitialVelocity, 0.001), 0.0, 1.0);
+            return result;
+        }
+
+        result.CurrentArmorHealth = armorItem.ArPen_GetCurrentArmorHealth(armorData);
         result.ArmorHealth01 = Math.Min(Math.Clamp(armorItem.GetHealth01("", "Health"), 0.0, 1.0), Math.Clamp(result.CurrentArmorHealth / result.BaseArmorHealth, 0.0, 1.0));
         result.CurrentKrupp = armorData.BaseKrupp;
         if (armorData.MaterialType == "Steel")
