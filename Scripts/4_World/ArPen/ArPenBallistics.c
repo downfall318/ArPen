@@ -100,7 +100,10 @@ class ArPenBallistics
         result.BaseArmorHealth = Math.Max(armorData.BaseArmorHealth, 0.001);
         result.ArmorHealth01 = Math.Min(Math.Clamp(armorItem.GetHealth01("", "Health"), 0.0, 1.0), Math.Clamp(result.CurrentArmorHealth / result.BaseArmorHealth, 0.0, 1.0));
         result.CurrentKrupp = armorData.BaseKrupp;
-        result.EffectiveKrupp = armorData.MaterialType == "Steel" ? armorData.BaseKrupp : armorData.BaseKrupp * Math.Sqrt(result.ArmorHealth01);
+        if (armorData.MaterialType == "Steel")
+            result.EffectiveKrupp = armorData.BaseKrupp;
+        else
+            result.EffectiveKrupp = armorData.BaseKrupp * Math.Sqrt(result.ArmorHealth01);
 
         float panelAreaMM2 = Math.Max(armorData.SurfaceAreaCM2, 1.0) * 100.0;
         result.EffectiveThicknessMM = armorData.ThicknessMM;
@@ -119,10 +122,13 @@ class ArPenBallistics
             result.Penetrated = result.ExitVelocity > 50.0;
         }
 
-        float residualEnergyFraction;
+        float residualEnergyFraction = 0.0;
         if (result.Penetrated && result.ImpactVelocity > 0.0)
             residualEnergyFraction = Math.Pow(result.ExitVelocity / result.ImpactVelocity, 2.0);
-        result.TransferredEnergyFraction = result.Penetrated ? Math.Clamp(1.0 - residualEnergyFraction, 0.0, 1.0) : 1.0;
+        if (result.Penetrated)
+            result.TransferredEnergyFraction = Math.Clamp(1.0 - residualEnergyFraction, 0.0, 1.0);
+        else
+            result.TransferredEnergyFraction = 1.0;
 
         float energyRaw = (ammoData.BaseDamage / Math.Max(ammoData.InitialVelocity, 1.0)) * 5.0 * result.ImpactVelocity * Math.Pow(ammoData.PenetrationMultiplier, 4.0) * 3.0;
         result.EnergyFraction = Math.Clamp(Math.Min(energyRaw, result.BaseArmorHealth) / result.BaseArmorHealth, 0.0, 1.0);
@@ -160,7 +166,9 @@ class ArPenBallistics
                 penetrationFactor = 0.18 + (0.82 * Math.Pow(1.0 / Math.Max(result.DepthRatio, 1.0), 1.35));
             else
                 penetrationFactor = 0.12 + (0.88 * Math.Pow(depthFraction, 1.8));
-            float depthBoost = result.EnergyFraction > 0.000001 ? Math.Max(0.25, severity / result.EnergyFraction) : 1.0;
+            float depthBoost = 1.0;
+            if (result.EnergyFraction > 0.000001)
+                depthBoost = Math.Max(0.25, severity / result.EnergyFraction);
             result.ArmorDamage = Math.Min(result.CurrentArmorHealth, rawDamage * penetrationFactor * depthBoost);
         }
 
@@ -169,14 +177,19 @@ class ArPenBallistics
         CalculateMaterialResponse(result, armorData);
         if (armorData.IsHelmet)
             CalculateHelmetResponse(result, armorData);
-        result.DamageMultiplier = result.Penetrated ? Math.Clamp(result.ExitVelocity / Math.Max(ammoData.InitialVelocity, 0.001), 0.0, 1.0) : 0.0;
+        result.DamageMultiplier = 0.0;
+        if (result.Penetrated)
+            result.DamageMultiplier = Math.Clamp(result.ExitVelocity / Math.Max(ammoData.InitialVelocity, 0.001), 0.0, 1.0);
         return result;
     }
 
     protected static void CalculateMaterialResponse(ArPenHitResult result, ArPenArmorData armorData)
     {
         result.RatedPlateThresholdJ = armorData.ArealDensityKGPerM2 * armorData.ResistanceConstant;
-        result.PlateThresholdJ = result.RatedPlateThresholdJ * (armorData.MaterialType == "Steel" ? 1.0 : Math.Sqrt(result.ArmorHealth01));
+        float healthStrength = Math.Sqrt(result.ArmorHealth01);
+        if (armorData.MaterialType == "Steel")
+            healthStrength = 1.0;
+        result.PlateThresholdJ = result.RatedPlateThresholdJ * healthStrength;
         if (armorData.IsHelmet)
             result.PlateThresholdJ = result.PlateThresholdJ / Math.Clamp(armorData.HelmetCurvatureFactor, 0.1, 1.0);
         result.LocalDamage = (result.ImpactEnergyJ - result.PlateThresholdJ) / Math.Max(armorData.PlateToughnessJ, 1.0);
