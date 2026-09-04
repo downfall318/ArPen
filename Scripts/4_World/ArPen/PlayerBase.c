@@ -1,5 +1,15 @@
 modded class PlayerBase
 {
+    protected void ArPen_ApplyCustomDamage(float healthDamage, float bloodDamage, float shockDamage)
+    {
+        if (healthDamage > 0.0)
+            DecreaseHealth("", "Health", healthDamage);
+        if (bloodDamage > 0.0)
+            DecreaseHealth("", "Blood", bloodDamage);
+        if (shockDamage > 0.0)
+            DecreaseHealth("", "Shock", shockDamage);
+    }
+
     protected float ArPen_GetStoppedHealthZoneMultiplier(string damageZone)
     {
         if (damageZone == "Head" || damageZone == "Brain")
@@ -239,12 +249,11 @@ modded class PlayerBase
             customBloodDamage = 0.0;
         }
 
-        if (customHealthDamage > 0.0)
-            DecreaseHealth("", "Health", customHealthDamage);
-        if (customBloodDamage > 0.0)
-            DecreaseHealth("", "Blood", customBloodDamage);
-        if (customShockDamage > 0.0)
-            DecreaseHealth("", "Shock", customShockDamage);
+        // Returning false below cancels DayZ's original event. Applying health
+        // changes inside EEOnDamageCalculated is unreliable because the active
+        // damage transaction can overwrite nested DecreaseHealth calls. Queue
+        // the custom result for the next script-call-queue update instead.
+        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(ArPen_ApplyCustomDamage, 0, false, customHealthDamage, customBloodDamage, customShockDamage);
 
         Print("[ArPen] CustomHealthDamage = " + customHealthDamage.ToString());
         Print("[ArPen] CustomBloodDamage = " + customBloodDamage.ToString());
