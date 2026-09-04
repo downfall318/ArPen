@@ -15,9 +15,9 @@ class ArPenAmmoProfile
     float BloodDamageMultiplier = 0.5;
     float ShockDamageMultiplier = 1.0;
     // Applied to custom stopped-hit trauma, independently of DayZ GlobalArmor.
-    float BluntHeadHealthMultiplier = 0.10;
+    float BluntHeadHealthMultiplier = 0.80;
     float BluntTorsoHealthMultiplier = 0.10;
-    float BluntHeadShockMultiplier = 0.35;
+    float BluntHeadShockMultiplier = 0.45;
     float BluntTorsoShockMultiplier = 0.35;
     string ThreatLevel = "Unrated";
     float ReferenceThreatEnergyJ;
@@ -107,15 +107,15 @@ class ArPenAmmoProfiles
         added += AddProfile("Bullet_50AE", ".50 AE", 450.0, 0.019, 0.12, 12.71, false, 50.0, 170.0, 1.0);
         added += AddProfile("Bullet_762x39", "7.62x39mm FMJ", 715.0, 0.008, 0.295, 7.62, false, 55.0, 165.0, 1.0);
         added += AddProfile("Bullet_22", ".22 LR", 370.0, 0.0026, 0.13, 5.7, false, 12.0, 140.0, 0.35);
-        added += AddProfile("Bullet_380", ".380 ACP", 300.0, 0.00615, 0.16, 9.0, false, 20.0, 150.0, 0.70);
-        added += AddProfile("Bullet_9x19", "9x19mm", 375.0, 0.0080, 0.16, 9.01, false, 26.0, 159.0, 0.80);
-        added += AddProfile("Bullet_45ACP", ".45 ACP", 260.0, 0.0149, 0.20, 11.43, false, 34.0, 158.0, 0.80);
-        added += AddProfile("Bullet_357", ".357 Magnum", 440.0, 0.0102, 0.20, 9.07, false, 45.0, 164.0, 0.95);
+        added += AddProfile("Bullet_380", ".380 ACP", 300.0, 0.00615, 0.16, 9.0, false, 20.0, 150.0, 0.64);
+        added += AddProfile("Bullet_9x19", "9x19mm", 375.0, 0.0080, 0.16, 9.01, false, 26.0, 159.0, 0.64);
+        added += AddProfile("Bullet_45ACP", ".45 ACP", 260.0, 0.0149, 0.20, 11.43, false, 34.0, 158.0, 0.64);
+        added += AddProfile("Bullet_357", ".357 Magnum", 440.0, 0.0102, 0.20, 9.07, false, 45.0, 164.0, 0.64);
         added += AddProfile("Bullet_545x39", "5.45x39mm", 880.0, 0.00343, 0.30, 5.62, false, 42.0, 160.0, 1.0);
         added += AddProfile("Bullet_545x39_Tracer", "5.45x39mm Tracer", 880.0, 0.00343, 0.30, 5.62, true, 42.0, 160.0, 1.0);
         added += AddProfile("Bullet_762x54", "7.62x54mmR", 830.0, 0.0096, 0.40, 7.92, false, 70.0, 170.0, 1.10);
         added += AddProfile("Bullet_762x54_Tracer", "7.62x54mmR Tracer", 830.0, 0.0096, 0.40, 7.92, true, 70.0, 170.0, 1.10);
-        added += AddProfile("Bullet_9x39", "9x39mm", 295.0, 0.0160, 0.31, 9.25, false, 55.0, 155.0, 1.10);
+        added += AddProfile("Bullet_9x39", "9x39mm", 295.0, 0.0160, 0.31, 9.25, false, 55.0, 155.0, 1.0);
         added += AddProfile("Bullet_9x39AP", "9x39mm AP", 310.0, 0.0160, 0.31, 9.25, false, 58.0, 155.0, 1.30);
         // Pellet profile values are per pellet, not the mass/caliber of the shell.
         added += AddProfile("Bullet_12GaugePellets", "12 Gauge Buckshot Pellet", 400.0, 0.0035, 0.045, 8.38, false, 34.0, 165.0, 0.65);
