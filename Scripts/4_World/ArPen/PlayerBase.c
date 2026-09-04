@@ -10,6 +10,22 @@ modded class PlayerBase
             DecreaseHealth("", "Shock", shockDamage);
     }
 
+    protected float ArPen_RemoveVanillaArmorReduction(float damage, EntityAI armor, string damageChannel)
+    {
+        if (!armor || damage <= 0.0)
+            return damage;
+
+        string multiplierPath = "CfgVehicles " + armor.GetType() + " DamageSystem GlobalArmor Projectile " + damageChannel + " damage";
+        if (!GetGame().ConfigIsExisting(multiplierPath))
+            return damage;
+
+        float vanillaArmorMultiplier = GetGame().ConfigGetFloat(multiplierPath);
+        if (vanillaArmorMultiplier <= 0.0001 || vanillaArmorMultiplier >= 1.0)
+            return damage;
+
+        return damage / vanillaArmorMultiplier;
+    }
+
     protected float ArPen_GetStoppedHealthZoneMultiplier(string damageZone)
     {
         if (damageZone == "Head" || damageZone == "Brain")
@@ -214,12 +230,23 @@ modded class PlayerBase
 
         if (hitResult.Penetrated)
         {
-            // Match the HTML reference: penetrating Health/Blood/Shock use
-            // DayZ's already-calculated damage result as engine passthrough.
-            // Exit velocity is diagnostic and must not reduce the result twice.
-            customHealthDamage = healthDamage;
-            customBloodDamage = bloodDamage;
-            customShockDamage = shockDamage;
+            // damageResult already contains the equipped item's vanilla
+            // GlobalArmor multiplier. A hard-armor perforation must bypass
+            // that reduction or the first penetration is treated like a stop.
+            // Ruined armor is already ignored by DayZ, so do not normalize it.
+            bool bypassIntactArmor = enrolledArmor && hitResult.ItemHealth > 0.0;
+            if (bypassIntactArmor)
+            {
+                customHealthDamage = ArPen_RemoveVanillaArmorReduction(healthDamage, armor, "Health");
+                customBloodDamage = ArPen_RemoveVanillaArmorReduction(bloodDamage, armor, "Blood");
+                customShockDamage = ArPen_RemoveVanillaArmorReduction(shockDamage, armor, "Shock");
+            }
+            else
+            {
+                customHealthDamage = healthDamage;
+                customBloodDamage = bloodDamage;
+                customShockDamage = shockDamage;
+            }
         }
         else
         {
