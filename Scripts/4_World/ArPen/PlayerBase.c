@@ -159,7 +159,10 @@ modded class PlayerBase
             {
                 armorItem.ArPen_ApplyDamage(armorData, hitResult.ArmorDamage, hitResult.AddedMetalLossVolumeMM3, hitResult.AddedDentVolumeMM3);
                 postArmorHealth = armorItem.ArPen_GetCurrentArmorHealth(armorData);
-                postItemHealth = armorItem.GetHealth("", "Health");
+                // Item health is applied after this callback to avoid a
+                // re-entrant ruined-item hit; report the queued result.
+                float queuedItemDamage = hitResult.ItemMaxHealth * (hitResult.ArmorDamage / Math.Max(hitResult.BaseArmorHealth, 1.0));
+                postItemHealth = Math.Max(0.0, hitResult.ItemHealth - queuedItemDamage);
                 postKrupp = armorItem.ArPen_GetCurrentKrupp(armorData);
             }
 
