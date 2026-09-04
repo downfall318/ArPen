@@ -201,13 +201,12 @@ modded class PlayerBase
 
         if (hitResult.Penetrated)
         {
-            // Reuse DayZ's base damage result, but recalculate it at the
-            // residual velocity after the projectile exits the armor.
-            float postPenetrationScale = hitResult.ExitVelocity / Math.Max(hitResult.ImpactVelocity, 0.001);
-            postPenetrationScale = Math.Clamp(postPenetrationScale, 0.0, 1.0);
-            customHealthDamage = healthDamage * postPenetrationScale;
-            customBloodDamage = bloodDamage * postPenetrationScale;
-            customShockDamage = shockDamage * postPenetrationScale;
+            // Match the HTML reference: penetrating Health/Blood/Shock use
+            // DayZ's already-calculated damage result as engine passthrough.
+            // Exit velocity is diagnostic and must not reduce the result twice.
+            customHealthDamage = healthDamage;
+            customBloodDamage = bloodDamage;
+            customShockDamage = shockDamage;
         }
         else
         {
