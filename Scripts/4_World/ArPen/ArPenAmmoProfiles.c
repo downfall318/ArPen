@@ -15,7 +15,7 @@ class ArPenAmmoProfile
     float BloodDamageMultiplier = 0.5;
     float ShockDamageMultiplier = 1.0;
     // Applied to custom stopped-hit trauma, independently of DayZ GlobalArmor.
-    float BluntHeadHealthMultiplier = 0.80;
+    float BluntHeadHealthMultiplier = 0.20;
     float BluntTorsoHealthMultiplier = 0.10;
     float BluntHeadShockMultiplier = 0.45;
     float BluntTorsoShockMultiplier = 0.35;
