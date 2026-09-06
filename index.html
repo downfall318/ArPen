@@ -260,7 +260,7 @@ details summary { cursor:pointer; font-weight:500; margin-bottom:8px; }
     ['Bullet_12GaugePellets','12 Gauge Buckshot Pellet',400,.0035,8.38,34,.65,'Unrated-Shotgun'],
     ['Bullet_12GaugeSlug','12 Gauge Slug',450,.028,18.5,110,.90,'Unrated-Shotgun'],
     ['Bullet_12GaugeRubberSlug','12 Gauge Rubber Slug',220,.006,18.5,10,.20,'Sub-IIA']
-  ].map(d => ({id:d[0], name:d[1], v0:d[2], mass:d[3], cal:d[4], base:d[5], pm:d[6], threat:d[7], bhh:.80, bth:.10, bhs:.45, bts:.35, ref:.5*d[3]*d[2]*d[2]}));
+  ].map(d => ({id:d[0], name:d[1], v0:d[2], mass:d[3], cal:d[4], base:d[5], pm:d[6], threat:d[7], bhh:.20, bth:.10, bhs:.45, bts:.35, ref:.5*d[3]*d[2]*d[2]}));
   let armor = [
     {id:'PlateCarrierVest', name:'Plate Carrier Vest — Level III ceramic', level:'III', type:'Ceramic', k:1500, hp:800, t:24, areal:25.9, resistance:151.6},
     {id:'BallisticHelmet_ColorBase', name:'Ballistic Helmet — Level IIIA UHMWPE', level:'IIIA', type:'Polymer', k:1100, hp:100, t:10.16, areal:5.9, resistance:151.6, helmet:true, curve:.60},
@@ -336,7 +336,7 @@ details summary { cursor:pointer; font-weight:500; margin-bottom:8px; }
     fields.resistance.value = p.resistance ?? 151.6;
     fields.metalSurface.value = p.metalSurface ?? (p.helmet ? 1200 : 750);
     fields.dentSpread.value = p.dentSpread ?? 4;
-    fields.bluntHeadHealth.value = a.bhh ?? 0.80;
+    fields.bluntHeadHealth.value = a.bhh ?? 0.20;
     fields.bluntTorsoHealth.value = a.bth ?? 0.10;
     fields.bluntHeadShock.value = a.bhs ?? 0.45;
     fields.bluntTorsoShock.value = a.bts ?? 0.35;
@@ -419,57 +419,33 @@ details summary { cursor:pointer; font-weight:500; margin-bottom:8px; }
       ? (v * Math.sqrt(a.mass)) / (keff * Math.sqrt(a.cal)) * a.pm * 1000
       : 0;
     const D = Math.max(0, Math.min(1, B / Math.max(thickness, 1e-6)));
-    // ---------- Energy severity (depth-free) ----------
-    // Shot severity is intrinsic to this projectile/velocity and is normalized
-    // against ORIGINAL component HP. Do not divide by current health here:
-    // doing so promotes weak mixed-caliber follow-up hits toward full damage.
-    // The ceramic health curve below already models increasing fragility.
     const energyRaw = Math.min(
       (a.base / Math.max(a.v0, 1)) * 5 * v * Math.pow(a.pm, 4) * 3,
       maxHp
     );
     const S_energy = Math.min(1, energyRaw / maxHp);
-    // ---------- Combined severity ----------
     const S = combinedSeverity(S_energy, D, w);
-    // Penetration / exit velocity.
-    // Krupp directly controls B, so changing k changes both the penetration
-    // boundary and (below) the amount of armor damage on the very next plot.
-    // A projectile must have enough calculated depth AND, for helmets, clear
-    // the blunt/areal-energy gate before it is considered a true perforation.
     const depthRatio = B / Math.max(thickness, 1e-6);
     let exit = 0, penetrated = false;
     if (depthRatio >= 1 && B > 0) {
       exit = v * Math.sqrt(Math.max(0, 1 - 1 / depthRatio));
       penetrated = exit > 50;
     }
-    // Areal-energy rating is retained for diagnostics / blunt-response tuning,
-    // but it is NOT allowed to veto a geometrically predicted perforation.
-    // The old helmet gate could make a thin IIIA helmet stop rifle rounds
-    // simply because total projectile energy was below an areal-density number,
-    // even when the Krupp/depth model said B > T.
     const rated = (p.areal ?? 25) * (p.resistance ?? 151.6);
     const threshold = (rated * hf) / (p.helmet ? (p.curve ?? 0.6) : 1);
     const residualEnergyFrac = penetrated && v > 0 ? Math.pow(exit / v, 2) : 0;
     const transferredEnergyFrac = penetrated ? Math.max(0, Math.min(1, 1 - residualEnergyFrac)) : 1;
-    // Only stopped-hit trauma is calculated here. Penetrating-hit Health and
-    // Shock begin with DayZ's engine damage result, which this standalone tool
-    // cannot reproduce from the exposed cartridge inputs.
     const speed01 = Math.max(0, v / Math.max(a.v0, 1));
     const playerBaseDamage = Math.max(0, a.base) * speed01 * speed01;
     const zoneMult = zoneMultipliers(zone);
     let playerHealthDamage = null, playerShockDamage = null, bluntSeverity = 0;
     let energyBluntSeverity = 0, depthBluntSeverity = 0;
-    if (penetrated) {
-      // Engine passthrough: ArPen's in-game path receives DayZ's calculated
-      // Health/Shock result and applies its residual-velocity handling there.
-    } else {
+    if (!penetrated) {
       const armorLoad = Math.max(0, Math.min(1, (energy * transferredEnergyFrac) / Math.max(threshold, 1)));
       energyBluntSeverity = Math.pow(armorLoad, 1.25);
       depthBluntSeverity = Math.pow(Math.max(0, Math.min(1, depthRatio)), 2);
-      // Penetration multiplier is already included in depthRatio through B.
-      // Use whichever mechanism says the stopped hit was more severe.
       bluntSeverity = Math.max(energyBluntSeverity, depthBluntSeverity);
-      const stoppedHealthMultiplier = zone === 'Head' ? (a.bhh ?? .10) : (a.bth ?? .10);
+      const stoppedHealthMultiplier = zone === 'Head' ? (a.bhh ?? .20) : (a.bth ?? .10);
       const stoppedShockMultiplier = zone === 'Head' ? (a.bhs ?? .35) : (a.bts ?? .35);
       playerHealthDamage = playerBaseDamage * zoneMult.health * stoppedHealthMultiplier * bluntSeverity;
       playerShockDamage = playerBaseDamage * zoneMult.shock * stoppedShockMultiplier * bluntSeverity;
@@ -481,73 +457,42 @@ details summary { cursor:pointer; font-weight:500; margin-bottom:8px; }
       damage = Math.min(damage, s.hp);
       s.hp = Math.max(0, s.hp - damage);
     } else if (p.type === 'Steel') {
-      // METAL VOLUME MODEL (all dimensions in mm / mm³)
-      // A circular wound channel removes projectile-area × traversed depth.
-      // The surrounding dent is counted as compromised volume over a wider
-      // footprint; only this dent component reduces subsequent thickness.
       panelVolume = panelAreaMm2 * p.t;
       const failureVolume = panelVolume * 0.25;
       const projectileArea = Math.PI * Math.pow(Math.max(a.cal, 0.01) / 2, 2);
       const traversedDepth = Math.min(Math.max(B, 0), thickness);
       channelVolume = projectileArea * traversedDepth;
-
       const spread = Math.max(1, p.dentSpread ?? 4);
       const dentArea = projectileArea * spread * spread;
       const dentAnnulusArea = Math.max(0, dentArea - projectileArea);
-      // Deposited-energy fraction controls how much of the wider footprint is
-      // treated as thinned/compromised. Cap dent depth at 25% of current T.
       const dentDepth = Math.min(
         thickness * 0.25,
         traversedDepth * transferredEnergyFrac * 0.25
       );
       dentVolume = dentAnnulusArea * dentDepth;
       volumeLoss = channelVolume + dentVolume;
-
       s.metalLoss = Math.min(failureVolume, (s.metalLoss || 0) + volumeLoss);
       s.dentVolume = Math.min(panelVolume, (s.dentVolume || 0) + dentVolume);
       const hpAfter = maxHp * Math.max(0, 1 - s.metalLoss / Math.max(failureVolume, 1e-9));
       damage = Math.min(s.hp, Math.max(0, s.hp - hpAfter));
       s.hp = hpAfter;
     } else {
-      // NON-CERAMIC / HELMET DAMAGE
-      // Damage is a fraction of THIS COMPONENT'S max HP, then coupled to
-      // calculated penetration depth. This prevents a 100-HP helmet from
-      // inheriting plate-scale raw damage and makes Krupp materially affect
-      // the damage curve even when the depth-weight control w is zero.
-      //
-      // Base damage is interpreted as the muzzle-velocity percentage of the
-      // component's max health before penetration coupling. Velocity uses an
-      // energy-like square law; deterioration raises susceptibility modestly.
       const baseFrac = Math.max(0, a.base) / 100;
       const susceptibility = 1 + (1 - Math.max(0, Math.min(1, health01))) * 0.75;
       let raw = maxHp * baseFrac * speed01 * speed01 * susceptibility;
-
-      // Penetration coupling is intentionally PEAKED around ballistic defeat.
-      // Near B/T ~= 1 the projectile is doing the most work on the armor:
-      // it nearly stops (or barely perforates) and deposits a large fraction
-      // of its energy into the component. Deep / extreme overmatch deposits a
-      // smaller fraction into the armor because more energy leaves with the
-      // projectile, so armor HP damage falls again after the penetration peak.
       let penetrationFactor;
       if (penetrated) {
-        // At threshold => ~1.0. As overmatch grows, transferred energy falls
-        // approximately with T/B. Keep a modest floor for hole/material damage.
         const overmatchTransfer = Math.pow(1 / Math.max(depthRatio, 1), 1.35);
         penetrationFactor = 0.18 + 0.82 * overmatchTransfer;
       } else {
-        // Stopped impacts ramp strongly toward the defeat point.
         penetrationFactor = 0.12 + 0.88 * Math.pow(Math.max(0, Math.min(1, D)), 1.8);
       }
-
-      // Optional depth weight can still increase severity, but it no longer
-      // bypasses the penetration coupling above.
       const depthBoost = S_energy > 1e-6 ? Math.max(0.25, S / S_energy) : 1;
       damage = raw * penetrationFactor * depthBoost;
       damage = Math.min(damage, s.hp);
       damage = Math.min(damage, maxHp);
       s.hp = Math.max(0, s.hp - damage);
     }
-    // Final safety snap for any residual scrap
     const epsFinal = Math.max(0.5, maxHp * 0.002);
     if (s.hp <= epsFinal) {
       damage += s.hp;
@@ -692,9 +637,6 @@ details summary { cursor:pointer; font-weight:500; margin-bottom:8px; }
       svg.append('g').attr('class', 'axis').attr('transform', `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(5));
       svg.append('text').attr('class', 'label').attr('x', m.l + iw / 2).attr('y', H - 8).attr('text-anchor', 'middle').text('Impact velocity (m/s)');
       svg.append('text').attr('class', 'label').attr('transform', `translate(16,${m.t + ih / 2}) rotate(-90)`).attr('text-anchor', 'middle').text('Armor damage (HP)');
-      // Primary curve: cumulative damage after this many consecutive hits.
-      // This avoids the misleading hump that appears when only the Nth-shot damage
-      // is plotted after earlier hits have already consumed most of the plate.
       for (let i = 1; i < data.length; i++) {
         const prev = data[i - 1], cur = data[i];
         const y1 = y(prev.cumulativeDamage ?? 0);
@@ -715,8 +657,6 @@ details summary { cursor:pointer; font-weight:500; margin-bottom:8px; }
           .attr('stroke-dasharray', dash)
           .attr('stroke-opacity', opac);
       }
-
-      // Secondary dashed reference: damage done by the current (Nth) shot only.
       for (let i = 1; i < data.length; i++) {
         const prev = data[i - 1], cur = data[i];
         svg.append('line')
