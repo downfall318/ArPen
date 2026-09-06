@@ -1,18 +1,67 @@
 modded class PlayerBase
 {
-    protected void ArPen_ApplyCustomDamage(float healthDamage, float bloodDamage, float shockDamage)
+    protected void ArPen_ApplyCustomDamage(ArPenWearerDamage packet)
     {
-        if (healthDamage > 0.0)
-            DecreaseHealth("", "Health", healthDamage);
-        if (bloodDamage > 0.0)
-            DecreaseHealth("", "Blood", bloodDamage);
-        if (shockDamage > 0.0)
-            DecreaseHealth("", "Shock", shockDamage);
+        if (!packet || !IsAlive())
+            return;
+
+        float beforeHealth = GetHealth("", "Health");
+        float beforeBlood = GetHealth("", "Blood");
+        float beforeShock = GetHealth("", "Shock");
+
+        foreach (ArPenZoneDamage zoneDamage : packet.Zones)
+        {
+            if (zoneDamage.HealthLoss <= 0 || zoneDamage.ZoneName == "")
+                continue;
+            float remaining = Math.Max(0, GetHealth(zoneDamage.ZoneName, "Health") - zoneDamage.HealthLoss);
+            SetHealth(zoneDamage.ZoneName, "Health", remaining);
+        }
+
+        // Apply the requested transfer once from this packet's starting pool.
+        // Never revive a character killed by native local-zone consequences.
+        if (packet.GlobalHealthLoss > 0 && IsAlive())
+            SetHealth("", "Health", Math.Max(0, beforeHealth - packet.GlobalHealthLoss));
+        SetHealth("", "Blood", Math.Max(0, beforeBlood - packet.GlobalBloodLoss));
+        SetHealth("", "Shock", Math.Max(0, beforeShock - packet.GlobalShockLoss));
+
+        if (IsAlive())
+        {
+            // A custom penetration opens a wound independently of vanilla
+            // GlobalArmor Blood=0. The manager validates the original hit
+            // selection and refuses duplicate/otherwise disallowed sources.
+            if (packet.Penetrated && GetBleedingManagerServer())
+                GetBleedingManagerServer().AttemptAddBleedingSource(packet.HitComponentIndex);
+
+            // Equivalent injury checks to vanilla PlayerBase.EEHitBy, without
+            // replaying EEHitBy and its second bleeding/nonlethal damage pass.
+            if (GetHealth("RightLeg", "Health") <= 1 || GetHealth("LeftLeg", "Health") <= 1 || GetHealth("RightFoot", "Health") <= 1 || GetHealth("LeftFoot", "Health") <= 1)
+            {
+                if (GetModifiersManager().IsModifierActive(eModifiers.MDF_BROKEN_LEGS))
+                    GetModifiersManager().DeactivateModifier(eModifiers.MDF_BROKEN_LEGS);
+                GetModifiersManager().ActivateModifier(eModifiers.MDF_BROKEN_LEGS);
+            }
+            if (packet.GlobalShockLoss > 0)
+            {
+                m_LastShockHitTime = GetGame().GetTime();
+                if (!IsUnconscious())
+                {
+                    string refillPath = "CfgAmmo " + packet.HitAmmoClassName + " unconRefillModifier";
+                    m_UnconRefillModifier = 1;
+                    if (GetGame().ConfigIsExisting(refillPath))
+                        m_UnconRefillModifier = GetGame().ConfigGetInt(refillPath);
+                }
+            }
+            if (m_ActionManager)
+                m_ActionManager.Interrupt();
+            m_ShockHandler.CheckValue(true);
+        }
     }
 
     protected float ArPen_RemoveVanillaArmorReduction(float damage, EntityAI armor, string damageChannel)
     {
-        if (!armor || damage <= 0.0)
+        if (damage <= 0.0)
+            return 0.0;
+        if (!armor)
             return damage;
 
         string multiplierPath = "CfgVehicles " + armor.GetType() + " DamageSystem GlobalArmor Projectile " + damageChannel + " damage";
@@ -54,8 +103,8 @@ modded class PlayerBase
     {
         ArPenAmmoData ammoData;
 
-        // Only explicitly enrolled ammo suppresses the vanilla damage event.
-        if (!ArPenConfig.ReadAmmo(ammo, ammoData))
+        // Only explicitly enrolled firearm ammo suppresses the vanilla event.
+        if (damageType != DamageType.FIRE_ARM || !ArPenConfig.ReadAmmo(ammo, ammoData))
             return super.EEOnDamageCalculated(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
 
         float impactVelocity = ammoData.InitialVelocity * Math.Max(speedCoef, 0.0);
@@ -67,6 +116,12 @@ modded class PlayerBase
         float shockDamage = damageResult.GetDamage(dmgZone, "Shock");
 
         EntityAI armor = ArPenBallistics.FindArmor(this, dmgZone);
+
+        // Armor already ruined before this hit uses the native damage event.
+        // An intact plate that this hit ruins still completes this calculation.
+        if (armor && armor.IsRuined())
+            return super.EEOnDamageCalculated(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
+
         ArPenArmorData armorData;
         ArPenHitResult hitResult;
         bool enrolledArmor = false;
@@ -133,13 +188,9 @@ modded class PlayerBase
             float speedRatio = hitResult.ImpactVelocity / Math.Max(ammoData.InitialVelocity, 0.001);
             float stoppedBaseDamage = ammoData.BaseDamage * speedRatio * speedRatio;
 
-            // A stopped projectile transfers all residual energy to armor/body.
-            // Current PlateThresholdJ already reflects ceramic/polymer health.
             float armorLoad = (hitResult.ImpactEnergyJ * hitResult.TransferredEnergyFraction) / Math.Max(hitResult.PlateThresholdJ, 1.0);
             float energyBluntSeverity = Math.Pow(Math.Clamp(armorLoad, 0.0, 1.0), 1.25);
             float depthBluntSeverity = Math.Pow(Math.Clamp(hitResult.DepthRatio, 0.0, 1.0), 2.0);
-            // PenetrationMultiplier is already included in DepthRatio through
-            // PenetrationDistanceMM, so near-perforations now raise blunt trauma.
             float bluntSeverity = Math.Max(energyBluntSeverity, depthBluntSeverity);
 
             float healthZoneMultiplier = ArPen_GetStoppedHealthZoneMultiplier(dmgZone);
@@ -157,12 +208,41 @@ modded class PlayerBase
             customBloodDamage = 0.0;
         }
 
-        // Returning false below cancels DayZ's original event. Applying health
-        // changes inside EEOnDamageCalculated is unreliable because the active
-        // damage transaction can overwrite nested DecreaseHealth calls. Queue
-        // the custom result for the next script-call-queue update instead.
-        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(ArPen_ApplyCustomDamage, 0, false, customHealthDamage, customBloodDamage, customShockDamage);
+        ArPenWearerDamage packet = new ArPenWearerDamage();
+        packet.HitAmmoClassName = ammo;
+        packet.HitComponentIndex = component;
+        packet.Penetrated = hitResult.Penetrated;
 
+        // Keep local zone damage separate from global-health transfer.
+        ArPenZoneDamage localDamage = new ArPenZoneDamage();
+        localDamage.ZoneName = dmgZone;
+        localDamage.HealthLoss = Math.Max(0, customHealthDamage);
+        packet.Zones.Insert(localDamage);
+
+        if (hitResult.Penetrated)
+        {
+            packet.GlobalBloodLoss = customBloodDamage;
+            packet.GlobalShockLoss = customShockDamage;
+        }
+        else
+        {
+            packet.GlobalBloodLoss = 0;
+            packet.GlobalShockLoss = customShockDamage;
+        }
+
+        // Transfer rates use the final local HEALTH damage amount.
+        if (dmgZone == "Torso")
+        {
+            packet.GlobalHealthLoss = localDamage.HealthLoss;
+            packet.GlobalShockLoss = localDamage.HealthLoss;
+        }
+        else if (dmgZone == "Head" || dmgZone == "Brain")
+        {
+            packet.GlobalHealthLoss = localDamage.HealthLoss * 2.0;
+            packet.GlobalShockLoss = localDamage.HealthLoss * 3.0;
+        }
+
+        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(ArPen_ApplyCustomDamage, 0, false, packet);
         return false;
     }
 }
