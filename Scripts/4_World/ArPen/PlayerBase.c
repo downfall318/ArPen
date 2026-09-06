@@ -19,29 +19,16 @@ modded class PlayerBase
             testHit.Bleeds = ArPenTestTelemetry.BleedCount(this);
         }
 
-        bool fatalZone = false;
         foreach (ArPenZoneDamage zoneDamage : packet.Zones)
         {
             if (zoneDamage.HealthLoss <= 0 || zoneDamage.ZoneName == "")
                 continue;
             float remaining = Math.Max(0, GetHealth(zoneDamage.ZoneName, "Health") - zoneDamage.HealthLoss);
             SetHealth(zoneDamage.ZoneName, "Health", remaining);
-            string fatalPath = "CfgVehicles " + GetType() + " DamageSystem DamageZones " + zoneDamage.ZoneName + " fatalInjuryCoef";
-            if (GetGame().ConfigIsExisting(fatalPath))
-            {
-                float fatalThreshold = GetGame().ConfigGetFloat(fatalPath);
-                if (fatalThreshold >= 0 && remaining <= GetMaxHealth(zoneDamage.ZoneName, "Health") * fatalThreshold)
-                    fatalZone = true;
-            }
         }
 
-        // Absolute destinations from this application's starting pools prevent
-        // adding zone damage a second time to the global damage result. Never
-        // restore health if a fatal zone has already killed the character.
-        float remainingGlobal = Math.Max(0, beforeHealth - packet.GlobalHealthLoss);
-        if (fatalZone || !IsAlive())
-            remainingGlobal = 0;
-        SetHealth("", "Health", remainingGlobal);
+        // Health damage is local only. No explicit global transfer or scripted
+        // fatal-zone kill is added; leave native zone consequences to DayZ.
         SetHealth("", "Blood", Math.Max(0, beforeBlood - packet.GlobalBloodLoss));
         SetHealth("", "Shock", Math.Max(0, beforeShock - packet.GlobalShockLoss));
 
@@ -147,13 +134,6 @@ modded class PlayerBase
         float shockDamage = damageResult.GetDamage(dmgZone, "Shock");
 
         EntityAI armor = ArPenBallistics.FindArmor(this, dmgZone);
-        if (!armor || armor.IsRuined())
-        {
-            bool acceptedNative = super.EEOnDamageCalculated(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
-            if (testHit && acceptedNative)
-                GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(testHit.Finish, 0, false, this);
-            return acceptedNative;
-        }
         ArPenArmorData armorData;
         ArPenHitResult hitResult;
         bool enrolledArmor = false;
@@ -263,22 +243,15 @@ modded class PlayerBase
         packet.Penetrated = hitResult.Penetrated;
         packet.Telemetry = testHit;
 
-        // The previously global health amount is now the struck zone's HP
-        // damage, unchanged. Only its configured transfer reaches global health.
+        // Apply the original health formula unchanged, exclusively to local HP.
         ArPenZoneDamage localDamage = new ArPenZoneDamage();
         localDamage.ZoneName = dmgZone;
         localDamage.HealthLoss = Math.Max(0, customHealthDamage);
         packet.Zones.Insert(localDamage);
-        string transferPath = "CfgVehicles " + GetType() + " DamageSystem DamageZones " + dmgZone + " Health transferToGlobalCoef";
-        float transfer = 1;
-        if (GetGame().ConfigIsExisting(transferPath))
-            transfer = Math.Max(0, GetGame().ConfigGetFloat(transferPath));
-        packet.GlobalHealthLoss = localDamage.HealthLoss * transfer;
-
         if (hitResult.Penetrated)
         {
-            packet.GlobalBloodLoss = ArPen_RemoveVanillaArmorReduction(damageResult.GetDamage("", "Blood"), armor, "Blood");
-            packet.GlobalShockLoss = ArPen_RemoveVanillaArmorReduction(damageResult.GetDamage("", "Shock"), armor, "Shock");
+            packet.GlobalBloodLoss = customBloodDamage;
+            packet.GlobalShockLoss = customShockDamage;
             packet.WoundBloodDamage = customBloodDamage;
         }
         else

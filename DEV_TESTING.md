@@ -23,9 +23,9 @@ For an existing offline mission, copy only `ArPenTest.enable` into its mission d
 
 ## Interpretation
 
-For both penetrating and stopped hard-armor hits, the health damage amount previously applied to global HP is now applied unchanged to the struck zone. Global health loss is that amount multiplied by the zone's configured health transfer coefficient (1 if absent; negative values clamped to 0). There is no inverse scaling of local damage. For example, a 24-point result with a transfer coefficient of 0.3 removes 24 local HP and 7.2 global HP. Blood and shock handling is unchanged by this remapping. Configured fatal-zone thresholds, bleeding eligibility for penetrations, leg injury checks and immediate shock checks run after the queued application. Stopped hits do not create bullet wounds.
+For enrolled ammunition, the original health-damage formula applies unchanged only to the struck zone. There is no explicit global-health write, transfer coefficient scaling, or scripted fatal-zone kill. DayZ remains responsible for native consequences of damaged zones. Blood and shock use the original custom amounts.
 
-Unarmored hits, armor already ruined before impact, non-firearm damage and unsupported/soft armor use the native damage event. In particular, normal leg/foot shots retain vanilla fracture and bleeding handling. Native fallback hits are labeled separately because the harness has no ArPen penetration result for them.
+Unarmored and already-ruined armor hits also retain the original custom calculation and local-only health application; they do not switch to native global bullet damage after armor breaks. Unsupported/soft armor, unenrolled ammunition and non-firearm events still use native handling. Penetrating custom hits retain bleeding eligibility checks; stopped hits do not create bullet wounds.
 
 Each queued hard-armor hit contains damage amounts and samples current pools when applied; packets queued after the target dies are discarded. Armor still takes damage once in the original calculation. The custom path does not replay EEHitBy: third-party hooks that rely on that native event are not restored by this fix.
 
@@ -46,18 +46,9 @@ API reference: https://github.com/BohemiaInteractive/DayZ-Script-Diff
 
 ## Zone-damage regression checks
 
-Compile the dev build first. Engine integration checks below are pending; source checks cannot establish engine callback ordering or fatal-zone behavior.
+DayZ compilation and runtime checks are pending. Source checks cannot establish engine-side consequences of local health setters.
 
-| Scenario | Expected result |
-| --- | --- |
-| Unarmored leg/foot hit | Native local HP loss, global damage, wounds and fracture behavior; no queued ArPen duplicate |
-| Fresh helmet, stopped hit | Previous blunt health result applied directly to local HP; coefficient-scaled global loss; no new bullet wound |
-| Fresh helmet, penetration | Separate local and global HP losses; fatal configured zone kills even if global HP would remain |
-| Vest penetration | Struck zone loses the previous health result; global loss equals local damage times its transfer coefficient |
-| Hit that ruins armor | One armor calculation and one wearer packet; normalization uses the pre-hit calculation |
-| Follow-up hit on ruined armor | Native event only |
-| Rapid hits | Each packet subtracts from the current pools; no stale snapshots or health restoration |
-| Penetration with blood damage | Original ammo's bleeding probability/threshold and component are used, once |
-| Soft armor or melee/explosion | Native behavior retained |
-
-Use single-shot HUD readings to compare local-zone HP loss against global loss. They are not expected to be identical on every body part. Also verify shock knockout/recovery, fatal head hits and repeated fractures in DayZ before merging this branch.
+- Fire repeated 9mm shots at a plate carrier until it is ruined and continue firing. The original formula's health amount must remain a local-zone subtraction before and after ruin; no custom global health subtraction is made.
+- Repeat unarmored, helmet, torso and limb tests. Confirm local HP, bleeds and shock in the HUD. Native death/injury consequences of zone damage remain possible.
+- Fire a short burst: each packet uses current local HP, with no stale health restoration.
+- Verify soft/unsupported armor, unenrolled ammunition and melee/explosion retain native handling.
