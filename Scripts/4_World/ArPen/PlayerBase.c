@@ -36,8 +36,11 @@ modded class PlayerBase
 
         if (IsAlive())
         {
-            if (packet.Penetrated && packet.WoundBloodDamage > 0 && GetBleedingManagerServer())
-                GetBleedingManagerServer().ProcessHit(packet.WoundBloodDamage, packet.HitSource, packet.HitComponentIndex, packet.HitZone, packet.HitAmmoClassName, packet.HitPosition);
+            // A custom penetration opens a wound independently of vanilla
+            // GlobalArmor Blood=0. The manager validates the original hit
+            // selection and refuses duplicate/otherwise disallowed sources.
+            if (packet.Penetrated && GetBleedingManagerServer())
+                GetBleedingManagerServer().AttemptAddBleedingSource(packet.HitComponentIndex);
 
             // Equivalent injury checks to vanilla PlayerBase.EEHitBy, without
             // replaying EEHitBy and its second bleeding/nonlethal damage pass.
@@ -263,7 +266,6 @@ modded class PlayerBase
         {
             packet.GlobalBloodLoss = customBloodDamage;
             packet.GlobalShockLoss = customShockDamage;
-            packet.WoundBloodDamage = customBloodDamage;
         }
         else
         {

@@ -11,7 +11,6 @@ class ArPenWearerDamage
     float GlobalHealthLoss;
     float GlobalBloodLoss;
     float GlobalShockLoss;
-    float WoundBloodDamage;
     bool Penetrated;
     string HitZone;
     string HitAmmoClassName;

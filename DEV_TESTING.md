@@ -32,7 +32,7 @@ For custom-handled enrolled ammunition, the original health formula still define
 
 Transfers use the calculated local damage, before capping it to remaining zone HP. They apply to custom stopped and penetrating hits. Global values are written once per packet from its starting pools, and health is never restored after native zone death. Already-ruined armor remains on the native path.
 
-Unarmored hits retain the original custom calculation and local-only health application. Armor already ruined before impact uses the native damage event, including native global damage. A hit that starts against intact armor and ruins it still completes the custom calculation once; subsequent hits use native handling. Unsupported/soft armor, unenrolled ammunition and non-firearm events still use native handling. Penetrating custom hits retain bleeding eligibility checks; stopped hits do not create bullet wounds.
+Unarmored hits retain the original custom calculation and local-only health application. Armor already ruined before impact uses the native damage event, including native global damage. A hit that starts against intact armor and ruins it still completes the custom calculation once; subsequent hits use native handling. Unsupported/soft armor, unenrolled ammunition and non-firearm events still use native handling. Custom penetrations on surviving targets request a bleeding source at the original hit component, independently of the vanilla armor-filtered blood-damage amount. This bypasses the native blood-damage chance roll for custom penetrations; the native manager still rejects invalid locations and duplicate/disallowed sources. Stopped hits do not request bullet wounds. Native fallback hits retain native bleeding behavior.
 
 Each queued hard-armor hit contains damage amounts and samples current pools when applied; packets queued after the target dies are discarded. Armor still takes damage once in the original calculation. The custom path does not replay EEHitBy: third-party hooks that rely on that native event are not restored by this fix.
 
@@ -61,3 +61,12 @@ DayZ compilation and runtime checks are pending. Source checks cannot establish 
 - Verify soft/unsupported armor, unenrolled ammunition and melee/explosion retain native handling.
 
 - Verify a 20-point torso result removes 20 global health and 20 shock; a 20-point Head/Brain firearm result removes 40 global health and 60 shock (subject to remaining pools). Confirm shock is replaced, not added to the older shock calculation.
+
+## Penetration bleed regression
+
+- Penetrate intact armor whose vanilla Projectile Blood multiplier is zero: a surviving target should gain a wound at a valid, previously unbled hit selection.
+- A stopped hit must not add a wound. Already-ruined armor retains the native event and its bleeding rules.
+- Repeated hits to an already bleeding selection need not increase the count; the manager refuses duplicates. Invalid component mappings and lethal hits also need not add a source.
+- Global health/shock transfer and immediate blood damage are unchanged. Bleeding subsequently drains blood through the native manager.
+
+Compile and verify these cases in DayZ; no runtime verification was available here.
