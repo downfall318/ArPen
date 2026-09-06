@@ -1,13 +1,27 @@
 modded class PlayerBase
 {
-    protected void ArPen_ApplyCustomDamage(float healthDamage, float bloodDamage, float shockDamage)
+    bool ArPen_TestTarget;
+
+    protected void ArPen_ApplyCustomDamage(float healthDamage, float bloodDamage, float shockDamage, ArPenTestHit testHit)
     {
+        // Capture immediately before the queued transaction, avoiding attribution
+        // of other queued custom hits to this hit.
+        if (testHit)
+        {
+            testHit.Health = GetHealth("", "Health");
+            testHit.Blood = GetHealth("", "Blood");
+            testHit.Shock = GetHealth("", "Shock");
+            testHit.ZoneHealth = GetHealth(testHit.Zone, "Health");
+            testHit.Bleeds = ArPenTestTelemetry.BleedCount(this);
+        }
         if (healthDamage > 0.0)
             DecreaseHealth("", "Health", healthDamage);
         if (bloodDamage > 0.0)
             DecreaseHealth("", "Blood", bloodDamage);
         if (shockDamage > 0.0)
             DecreaseHealth("", "Shock", shockDamage);
+        if (testHit)
+            testHit.Finish(this);
     }
 
     protected float ArPen_RemoveVanillaArmorReduction(float damage, EntityAI armor, string damageChannel)
@@ -52,11 +66,22 @@ modded class PlayerBase
 
     override bool EEOnDamageCalculated(TotalDamageResult damageResult, int damageType, EntityAI source, int component, string dmgZone, string ammo, vector modelPos, float speedCoef)
     {
+        ArPenTestHit testHit;
+        if (ArPen_TestTarget && ArPenTestSpawner.Enabled())
+        {
+            testHit = new ArPenTestHit();
+            testHit.Capture(this, dmgZone, ammo, component);
+        }
         ArPenAmmoData ammoData;
 
         // Only explicitly enrolled ammo suppresses the vanilla damage event.
         if (!ArPenConfig.ReadAmmo(ammo, ammoData))
-            return super.EEOnDamageCalculated(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
+        {
+            bool accepted0 = super.EEOnDamageCalculated(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
+            if (testHit && accepted0)
+                GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(testHit.Finish, 0, false, this);
+            return accepted0;
+        }
 
         float impactVelocity = ammoData.InitialVelocity * Math.Max(speedCoef, 0.0);
         float impactEnergyJ = 0.5 * ammoData.BulletMassKG * impactVelocity * impactVelocity;
@@ -76,12 +101,22 @@ modded class PlayerBase
         // armor—including soft armor and protective/cosmetic headgear—uses
         // DayZ's original GlobalArmor result.
         if (armor && !hasArmorProfile)
-            return super.EEOnDamageCalculated(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
+        {
+            bool accepted1 = super.EEOnDamageCalculated(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
+            if (testHit && accepted1)
+                GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(testHit.Finish, 0, false, this);
+            return accepted1;
+        }
 
         // Kevlar and other soft armor deliberately retain DayZ's native
         // GlobalArmor calculation and damage application.
         if (hasArmorProfile && armorData.IsSoftArmor)
-            return super.EEOnDamageCalculated(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
+        {
+            bool accepted2 = super.EEOnDamageCalculated(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
+            if (testHit && accepted2)
+                GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(testHit.Finish, 0, false, this);
+            return accepted2;
+        }
 
         if (hasArmorProfile)
         {
@@ -161,7 +196,9 @@ modded class PlayerBase
         // changes inside EEOnDamageCalculated is unreliable because the active
         // damage transaction can overwrite nested DecreaseHealth calls. Queue
         // the custom result for the next script-call-queue update instead.
-        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(ArPen_ApplyCustomDamage, 0, false, customHealthDamage, customBloodDamage, customShockDamage);
+        if (testHit)
+            testHit.Result = hitResult;
+        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(ArPen_ApplyCustomDamage, 0, false, customHealthDamage, customBloodDamage, customShockDamage, testHit);
 
         return false;
     }
