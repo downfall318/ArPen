@@ -2,31 +2,86 @@ modded class PlayerBase
 {
     bool ArPen_TestTarget;
 
-    protected void ArPen_ApplyCustomDamage(float healthDamage, float bloodDamage, float shockDamage, ArPenTestHit testHit)
+    protected void ArPen_ApplyCustomDamage(ArPenWearerDamage packet)
     {
-        // Capture immediately before the queued transaction, avoiding attribution
-        // of other queued custom hits to this hit.
+        if (!packet || !IsAlive())
+            return;
+        ArPenTestHit testHit = packet.Telemetry;
+        float beforeHealth = GetHealth("", "Health");
+        float beforeBlood = GetHealth("", "Blood");
+        float beforeShock = GetHealth("", "Shock");
         if (testHit)
         {
-            testHit.Health = GetHealth("", "Health");
-            testHit.Blood = GetHealth("", "Blood");
-            testHit.Shock = GetHealth("", "Shock");
+            testHit.Health = beforeHealth;
+            testHit.Blood = beforeBlood;
+            testHit.Shock = beforeShock;
             testHit.ZoneHealth = GetHealth(testHit.Zone, "Health");
             testHit.Bleeds = ArPenTestTelemetry.BleedCount(this);
         }
-        if (healthDamage > 0.0)
-            DecreaseHealth("", "Health", healthDamage);
-        if (bloodDamage > 0.0)
-            DecreaseHealth("", "Blood", bloodDamage);
-        if (shockDamage > 0.0)
-            DecreaseHealth("", "Shock", shockDamage);
+
+        bool fatalZone = false;
+        foreach (ArPenZoneDamage zoneDamage : packet.Zones)
+        {
+            if (zoneDamage.HealthLoss <= 0 || zoneDamage.ZoneName == "")
+                continue;
+            float remaining = Math.Max(0, GetHealth(zoneDamage.ZoneName, "Health") - zoneDamage.HealthLoss);
+            SetHealth(zoneDamage.ZoneName, "Health", remaining);
+            string fatalPath = "CfgVehicles " + GetType() + " DamageSystem DamageZones " + zoneDamage.ZoneName + " fatalInjuryCoef";
+            if (GetGame().ConfigIsExisting(fatalPath))
+            {
+                float fatalThreshold = GetGame().ConfigGetFloat(fatalPath);
+                if (fatalThreshold >= 0 && remaining <= GetMaxHealth(zoneDamage.ZoneName, "Health") * fatalThreshold)
+                    fatalZone = true;
+            }
+        }
+
+        // Absolute destinations from this application's starting pools prevent
+        // adding zone damage a second time to the global damage result. Never
+        // restore health if a fatal zone has already killed the character.
+        float remainingGlobal = Math.Max(0, beforeHealth - packet.GlobalHealthLoss);
+        if (fatalZone || !IsAlive())
+            remainingGlobal = 0;
+        SetHealth("", "Health", remainingGlobal);
+        SetHealth("", "Blood", Math.Max(0, beforeBlood - packet.GlobalBloodLoss));
+        SetHealth("", "Shock", Math.Max(0, beforeShock - packet.GlobalShockLoss));
+
+        if (IsAlive())
+        {
+            if (packet.Penetrated && packet.WoundBloodDamage > 0 && GetBleedingManagerServer())
+                GetBleedingManagerServer().ProcessHit(packet.WoundBloodDamage, packet.HitSource, packet.HitComponentIndex, packet.HitZone, packet.AmmoType, packet.HitPosition);
+
+            // Equivalent injury checks to vanilla PlayerBase.EEHitBy, without
+            // replaying EEHitBy and its second bleeding/nonlethal damage pass.
+            if (GetHealth("RightLeg", "Health") <= 1 || GetHealth("LeftLeg", "Health") <= 1 || GetHealth("RightFoot", "Health") <= 1 || GetHealth("LeftFoot", "Health") <= 1)
+            {
+                if (GetModifiersManager().IsModifierActive(eModifiers.MDF_BROKEN_LEGS))
+                    GetModifiersManager().DeactivateModifier(eModifiers.MDF_BROKEN_LEGS);
+                GetModifiersManager().ActivateModifier(eModifiers.MDF_BROKEN_LEGS);
+            }
+            if (packet.GlobalShockLoss > 0)
+            {
+                m_LastShockHitTime = GetGame().GetTime();
+                if (!IsUnconscious())
+                {
+                    string refillPath = "CfgAmmo " + packet.AmmoType + " unconRefillModifier";
+                    m_UnconRefillModifier = 1;
+                    if (GetGame().ConfigIsExisting(refillPath))
+                        m_UnconRefillModifier = GetGame().ConfigGetInt(refillPath);
+                }
+            }
+            if (m_ActionManager)
+                m_ActionManager.Interrupt();
+            m_ShockHandler.CheckValue(true);
+        }
         if (testHit)
             testHit.Finish(this);
     }
 
     protected float ArPen_RemoveVanillaArmorReduction(float damage, EntityAI armor, string damageChannel)
     {
-        if (!armor || damage <= 0.0)
+        if (damage <= 0.0)
+            return 0.0;
+        if (!armor)
             return damage;
 
         string multiplierPath = "CfgVehicles " + armor.GetType() + " DamageSystem GlobalArmor Projectile " + damageChannel + " damage";
@@ -75,7 +130,7 @@ modded class PlayerBase
         ArPenAmmoData ammoData;
 
         // Only explicitly enrolled ammo suppresses the vanilla damage event.
-        if (!ArPenConfig.ReadAmmo(ammo, ammoData))
+        if (damageType != DamageType.FIRE_ARM || !ArPenConfig.ReadAmmo(ammo, ammoData))
         {
             bool accepted0 = super.EEOnDamageCalculated(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
             if (testHit && accepted0)
@@ -92,6 +147,13 @@ modded class PlayerBase
         float shockDamage = damageResult.GetDamage(dmgZone, "Shock");
 
         EntityAI armor = ArPenBallistics.FindArmor(this, dmgZone);
+        if (!armor || armor.IsRuined())
+        {
+            bool acceptedNative = super.EEOnDamageCalculated(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
+            if (testHit && acceptedNative)
+                GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(testHit.Finish, 0, false, this);
+            return acceptedNative;
+        }
         ArPenArmorData armorData;
         ArPenHitResult hitResult;
         bool enrolledArmor = false;
@@ -192,14 +254,59 @@ modded class PlayerBase
             customBloodDamage = 0.0;
         }
 
-        // Returning false below cancels DayZ's original event. Applying health
-        // changes inside EEOnDamageCalculated is unreliable because the active
-        // damage transaction can overwrite nested DecreaseHealth calls. Queue
-        // the custom result for the next script-call-queue update instead.
+        ArPenWearerDamage packet = new ArPenWearerDamage();
+        packet.HitZone = dmgZone;
+        packet.AmmoType = ammo;
+        packet.HitComponentIndex = component;
+        packet.HitPosition = modelPos;
+        packet.HitSource = source;
+        packet.Penetrated = hitResult.Penetrated;
+        packet.Telemetry = testHit;
+
+        if (hitResult.Penetrated)
+        {
+            // DayZ supplies GLOBAL results separately from each zone's result.
+            // Armor was intact when this event was calculated, even if this shot
+            // has since ruined it. Normalize using that pre-hit state.
+            packet.GlobalHealthLoss = ArPen_RemoveVanillaArmorReduction(damageResult.GetDamage("", "Health"), armor, "Health");
+            packet.GlobalBloodLoss = ArPen_RemoveVanillaArmorReduction(damageResult.GetDamage("", "Blood"), armor, "Blood");
+            packet.GlobalShockLoss = ArPen_RemoveVanillaArmorReduction(damageResult.GetDamage("", "Shock"), armor, "Shock");
+            packet.WoundBloodDamage = customBloodDamage;
+            array<string> damageZones = new array<string>;
+            GetDamageZones(damageZones);
+            foreach (string affectedZone : damageZones)
+            {
+                float zoneLoss = ArPen_RemoveVanillaArmorReduction(damageResult.GetDamage(affectedZone, "Health"), armor, "Health");
+                if (zoneLoss <= 0)
+                    continue;
+                ArPenZoneDamage penetratingZone = new ArPenZoneDamage();
+                penetratingZone.ZoneName = affectedZone;
+                penetratingZone.HealthLoss = zoneLoss;
+                packet.Zones.Insert(penetratingZone);
+            }
+        }
+        else
+        {
+            // Preserve the tuned GLOBAL blunt-trauma formula. Convert its health
+            // result into local HP through the character's configured transfer.
+            packet.GlobalHealthLoss = customHealthDamage;
+            packet.GlobalBloodLoss = 0;
+            packet.GlobalShockLoss = customShockDamage;
+            string transferPath = "CfgVehicles " + GetType() + " DamageSystem DamageZones " + dmgZone + " Health transferToGlobalCoef";
+            float transfer = 1;
+            if (GetGame().ConfigIsExisting(transferPath))
+                transfer = GetGame().ConfigGetFloat(transferPath);
+            ArPenZoneDamage stoppedZone = new ArPenZoneDamage();
+            stoppedZone.ZoneName = dmgZone;
+            stoppedZone.HealthLoss = customHealthDamage;
+            if (transfer > 0)
+                stoppedZone.HealthLoss = customHealthDamage / transfer;
+            packet.Zones.Insert(stoppedZone);
+        }
+
         if (testHit)
             testHit.Result = hitResult;
-        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(ArPen_ApplyCustomDamage, 0, false, customHealthDamage, customBloodDamage, customShockDamage, testHit);
-
+        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(ArPen_ApplyCustomDamage, 0, false, packet);
         return false;
     }
 }

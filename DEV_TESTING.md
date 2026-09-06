@@ -23,7 +23,11 @@ For an existing offline mission, copy only `ArPenTest.enable` into its mission d
 
 ## Interpretation
 
-Instrumentation observes the current damage implementation; it does not inject fractures, wounds or extra damage. Current ArPen custom hits only subtract global health/blood/shock and cancel the native event, so limb health and bleed counts may remain unchanged. These are useful test findings, not synthetic zeroes. Native fallback hits are labeled separately because ArPen has no penetration result for them.
+The development damage fix separates native global damage from local zone HP. Penetrations apply the engine's separate global results and affected local health-zone results with hard-armor reduction removed. Stopped hits retain the tuned global blunt-trauma formula and derive struck-zone HP loss using its configured health transfer coefficient (unit conversion fallback if the coefficient is missing or nonpositive). Configured fatal-zone thresholds, bleeding eligibility for penetrations, leg injury checks and immediate shock checks run after the queued application. Stopped hits do not create bullet wounds.
+
+Unarmored hits, armor already ruined before impact, non-firearm damage and unsupported/soft armor use the native damage event. In particular, normal leg/foot shots retain vanilla fracture and bleeding handling. Native fallback hits are labeled separately because the harness has no ArPen penetration result for them.
+
+Each queued hard-armor hit contains damage amounts and samples current pools when applied; packets queued after the target dies are discarded. Armor still takes damage once in the original calculation. The custom path does not replay EEHitBy: third-party hooks that rely on that native event are not restored by this fix.
 
 Custom-hit global deltas are captured immediately around each queued application. Armor deltas cover the original calculation and queued report. Native fallback deltas are sampled on the next script queue update and can include overlapping impacts; use single shots for attribution. The HUD retains the latest hit, not a historical log. No ArPen RPT prints or broadcast notifications are added.
 
@@ -39,3 +43,21 @@ The source was checked against Bohemia's published DayZ script APIs; no DayZ com
 - Start without the marker and on multiplayer: controls and spawning remain disabled.
 
 API reference: https://github.com/BohemiaInteractive/DayZ-Script-Diff
+
+## Zone-damage regression checks
+
+Compile the dev build first. Engine integration checks below are pending; source checks cannot establish engine callback ordering or fatal-zone behavior.
+
+| Scenario | Expected result |
+| --- | --- |
+| Unarmored leg/foot hit | Native local HP loss, global damage, wounds and fracture behavior; no queued ArPen duplicate |
+| Fresh helmet, stopped hit | Global blunt trauma plus local zone HP loss; no new bullet wound |
+| Fresh helmet, penetration | Separate local and global HP losses; fatal configured zone kills even if global HP would remain |
+| Vest penetration | Affected health zones update; global loss uses the global result, not the local value |
+| Hit that ruins armor | One armor calculation and one wearer packet; normalization uses the pre-hit calculation |
+| Follow-up hit on ruined armor | Native event only |
+| Rapid hits | Each packet subtracts from the current pools; no stale snapshots or health restoration |
+| Penetration with blood damage | Original ammo's bleeding probability/threshold and component are used, once |
+| Soft armor or melee/explosion | Native behavior retained |
+
+Use single-shot HUD readings to compare local-zone HP loss against global loss. They are not expected to be identical on every body part. Also verify shock knockout/recovery, fatal head hits and repeated fractures in DayZ before merging this branch.
