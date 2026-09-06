@@ -48,7 +48,7 @@ modded class PlayerBase
         if (IsAlive())
         {
             if (packet.Penetrated && packet.WoundBloodDamage > 0 && GetBleedingManagerServer())
-                GetBleedingManagerServer().ProcessHit(packet.WoundBloodDamage, packet.HitSource, packet.HitComponentIndex, packet.HitZone, packet.AmmoType, packet.HitPosition);
+                GetBleedingManagerServer().ProcessHit(packet.WoundBloodDamage, packet.HitSource, packet.HitComponentIndex, packet.HitZone, packet.HitAmmoClassName, packet.HitPosition);
 
             // Equivalent injury checks to vanilla PlayerBase.EEHitBy, without
             // replaying EEHitBy and its second bleeding/nonlethal damage pass.
@@ -63,7 +63,7 @@ modded class PlayerBase
                 m_LastShockHitTime = GetGame().GetTime();
                 if (!IsUnconscious())
                 {
-                    string refillPath = "CfgAmmo " + packet.AmmoType + " unconRefillModifier";
+                    string refillPath = "CfgAmmo " + packet.HitAmmoClassName + " unconRefillModifier";
                     m_UnconRefillModifier = 1;
                     if (GetGame().ConfigIsExisting(refillPath))
                         m_UnconRefillModifier = GetGame().ConfigGetInt(refillPath);
@@ -256,7 +256,7 @@ modded class PlayerBase
 
         ArPenWearerDamage packet = new ArPenWearerDamage();
         packet.HitZone = dmgZone;
-        packet.AmmoType = ammo;
+        packet.HitAmmoClassName = ammo;
         packet.HitComponentIndex = component;
         packet.HitPosition = modelPos;
         packet.HitSource = source;

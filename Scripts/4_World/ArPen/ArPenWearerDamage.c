@@ -14,7 +14,7 @@ class ArPenWearerDamage
     float WoundBloodDamage;
     bool Penetrated;
     string HitZone;
-    string AmmoType;
+    string HitAmmoClassName;
     int HitComponentIndex;
     vector HitPosition;
     EntityAI HitSource;
