@@ -23,7 +23,7 @@ For an existing offline mission, copy only `ArPenTest.enable` into its mission d
 
 ## Interpretation
 
-The development damage fix separates native global damage from local zone HP. Penetrations apply the engine's separate global results and affected local health-zone results with hard-armor reduction removed. Stopped hits retain the tuned global blunt-trauma formula and derive struck-zone HP loss using its configured health transfer coefficient (unit conversion fallback if the coefficient is missing or nonpositive). Configured fatal-zone thresholds, bleeding eligibility for penetrations, leg injury checks and immediate shock checks run after the queued application. Stopped hits do not create bullet wounds.
+For both penetrating and stopped hard-armor hits, the health damage amount previously applied to global HP is now applied unchanged to the struck zone. Global health loss is that amount multiplied by the zone's configured health transfer coefficient (1 if absent; negative values clamped to 0). There is no inverse scaling of local damage. For example, a 24-point result with a transfer coefficient of 0.3 removes 24 local HP and 7.2 global HP. Blood and shock handling is unchanged by this remapping. Configured fatal-zone thresholds, bleeding eligibility for penetrations, leg injury checks and immediate shock checks run after the queued application. Stopped hits do not create bullet wounds.
 
 Unarmored hits, armor already ruined before impact, non-firearm damage and unsupported/soft armor use the native damage event. In particular, normal leg/foot shots retain vanilla fracture and bleeding handling. Native fallback hits are labeled separately because the harness has no ArPen penetration result for them.
 
@@ -51,9 +51,9 @@ Compile the dev build first. Engine integration checks below are pending; source
 | Scenario | Expected result |
 | --- | --- |
 | Unarmored leg/foot hit | Native local HP loss, global damage, wounds and fracture behavior; no queued ArPen duplicate |
-| Fresh helmet, stopped hit | Global blunt trauma plus local zone HP loss; no new bullet wound |
+| Fresh helmet, stopped hit | Previous blunt health result applied directly to local HP; coefficient-scaled global loss; no new bullet wound |
 | Fresh helmet, penetration | Separate local and global HP losses; fatal configured zone kills even if global HP would remain |
-| Vest penetration | Affected health zones update; global loss uses the global result, not the local value |
+| Vest penetration | Struck zone loses the previous health result; global loss equals local damage times its transfer coefficient |
 | Hit that ruins armor | One armor calculation and one wearer packet; normalization uses the pre-hit calculation |
 | Follow-up hit on ruined armor | Native event only |
 | Rapid hits | Each packet subtracts from the current pools; no stale snapshots or health restoration |

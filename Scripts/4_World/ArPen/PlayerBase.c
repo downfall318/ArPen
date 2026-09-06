@@ -263,45 +263,28 @@ modded class PlayerBase
         packet.Penetrated = hitResult.Penetrated;
         packet.Telemetry = testHit;
 
+        // The previously global health amount is now the struck zone's HP
+        // damage, unchanged. Only its configured transfer reaches global health.
+        ArPenZoneDamage localDamage = new ArPenZoneDamage();
+        localDamage.ZoneName = dmgZone;
+        localDamage.HealthLoss = Math.Max(0, customHealthDamage);
+        packet.Zones.Insert(localDamage);
+        string transferPath = "CfgVehicles " + GetType() + " DamageSystem DamageZones " + dmgZone + " Health transferToGlobalCoef";
+        float transfer = 1;
+        if (GetGame().ConfigIsExisting(transferPath))
+            transfer = Math.Max(0, GetGame().ConfigGetFloat(transferPath));
+        packet.GlobalHealthLoss = localDamage.HealthLoss * transfer;
+
         if (hitResult.Penetrated)
         {
-            // DayZ supplies GLOBAL results separately from each zone's result.
-            // Armor was intact when this event was calculated, even if this shot
-            // has since ruined it. Normalize using that pre-hit state.
-            packet.GlobalHealthLoss = ArPen_RemoveVanillaArmorReduction(damageResult.GetDamage("", "Health"), armor, "Health");
             packet.GlobalBloodLoss = ArPen_RemoveVanillaArmorReduction(damageResult.GetDamage("", "Blood"), armor, "Blood");
             packet.GlobalShockLoss = ArPen_RemoveVanillaArmorReduction(damageResult.GetDamage("", "Shock"), armor, "Shock");
             packet.WoundBloodDamage = customBloodDamage;
-            array<string> damageZones = new array<string>;
-            GetDamageZones(damageZones);
-            foreach (string affectedZone : damageZones)
-            {
-                float zoneLoss = ArPen_RemoveVanillaArmorReduction(damageResult.GetDamage(affectedZone, "Health"), armor, "Health");
-                if (zoneLoss <= 0)
-                    continue;
-                ArPenZoneDamage penetratingZone = new ArPenZoneDamage();
-                penetratingZone.ZoneName = affectedZone;
-                penetratingZone.HealthLoss = zoneLoss;
-                packet.Zones.Insert(penetratingZone);
-            }
         }
         else
         {
-            // Preserve the tuned GLOBAL blunt-trauma formula. Convert its health
-            // result into local HP through the character's configured transfer.
-            packet.GlobalHealthLoss = customHealthDamage;
             packet.GlobalBloodLoss = 0;
             packet.GlobalShockLoss = customShockDamage;
-            string transferPath = "CfgVehicles " + GetType() + " DamageSystem DamageZones " + dmgZone + " Health transferToGlobalCoef";
-            float transfer = 1;
-            if (GetGame().ConfigIsExisting(transferPath))
-                transfer = GetGame().ConfigGetFloat(transferPath);
-            ArPenZoneDamage stoppedZone = new ArPenZoneDamage();
-            stoppedZone.ZoneName = dmgZone;
-            stoppedZone.HealthLoss = customHealthDamage;
-            if (transfer > 0)
-                stoppedZone.HealthLoss = customHealthDamage / transfer;
-            packet.Zones.Insert(stoppedZone);
         }
 
         if (testHit)
