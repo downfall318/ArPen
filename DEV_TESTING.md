@@ -23,7 +23,14 @@ For an existing offline mission, copy only `ArPenTest.enable` into its mission d
 
 ## Interpretation
 
-For custom-handled enrolled ammunition, the original health-damage formula applies unchanged only to the struck zone. There is no explicit global-health write, transfer coefficient scaling, or scripted fatal-zone kill. DayZ remains responsible for native consequences of damaged zones. Blood and shock use the original custom amounts.
+For custom-handled enrolled ammunition, the original health formula still defines the local HP damage. Torso hits additionally transfer that final amount 1:1 to global health and shock. Head/Brain firearm hits transfer it at 2x to global health and 3x to shock. These shock transfers replace the previous shock result for those zones, rather than adding to it. Other zones retain their current local-health and shock behavior; blood handling is unchanged. No scripted fatal-zone kill is added.
+
+| Local health damage | Zone | Global health loss | Global shock loss |
+| --- | --- | --- | --- |
+| 20 | Torso | 20 | 20 |
+| 20 | Head / Brain (firearm) | 40 | 60 |
+
+Transfers use the calculated local damage, before capping it to remaining zone HP. They apply to custom stopped and penetrating hits. Global values are written once per packet from its starting pools, and health is never restored after native zone death. Already-ruined armor remains on the native path.
 
 Unarmored hits retain the original custom calculation and local-only health application. Armor already ruined before impact uses the native damage event, including native global damage. A hit that starts against intact armor and ruins it still completes the custom calculation once; subsequent hits use native handling. Unsupported/soft armor, unenrolled ammunition and non-firearm events still use native handling. Penetrating custom hits retain bleeding eligibility checks; stopped hits do not create bullet wounds.
 
@@ -48,7 +55,9 @@ API reference: https://github.com/BohemiaInteractive/DayZ-Script-Diff
 
 DayZ compilation and runtime checks are pending. Source checks cannot establish engine-side consequences of local health setters.
 
-- Fire repeated 9mm shots at a plate carrier until it is ruined and continue firing. While the plate stops the bullet, the original formula's health amount must be applied locally, with no explicit custom global-health subtraction. Once the plate is already ruined before impact, expect native damage handling.
+- Fire repeated 9mm shots at a plate carrier until it is ruined and continue firing. While the plate stops the bullet, the original formula's health amount must be applied locally, with the requested torso/head health and shock transfers. Once the plate is already ruined before impact, expect native damage handling.
 - Repeat unarmored, helmet, torso and limb tests. Confirm local HP, bleeds and shock in the HUD. Native death/injury consequences of zone damage remain possible.
 - Fire a short burst: each packet uses current local HP, with no stale health restoration.
 - Verify soft/unsupported armor, unenrolled ammunition and melee/explosion retain native handling.
+
+- Verify a 20-point torso result removes 20 global health and 20 shock; a 20-point Head/Brain firearm result removes 40 global health and 60 shock (subject to remaining pools). Confirm shock is replaced, not added to the older shock calculation.

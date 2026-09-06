@@ -27,8 +27,10 @@ modded class PlayerBase
             SetHealth(zoneDamage.ZoneName, "Health", remaining);
         }
 
-        // Health damage is local only. No explicit global transfer or scripted
-        // fatal-zone kill is added; leave native zone consequences to DayZ.
+        // Apply the requested transfer once from this packet's starting pool.
+        // Never revive a character killed by native local-zone consequences.
+        if (packet.GlobalHealthLoss > 0 && IsAlive())
+            SetHealth("", "Health", Math.Max(0, beforeHealth - packet.GlobalHealthLoss));
         SetHealth("", "Blood", Math.Max(0, beforeBlood - packet.GlobalBloodLoss));
         SetHealth("", "Shock", Math.Max(0, beforeShock - packet.GlobalShockLoss));
 
@@ -252,7 +254,7 @@ modded class PlayerBase
         packet.Penetrated = hitResult.Penetrated;
         packet.Telemetry = testHit;
 
-        // Apply the original health formula unchanged, exclusively to local HP.
+        // Keep the original local health amount; transfer it separately below.
         ArPenZoneDamage localDamage = new ArPenZoneDamage();
         localDamage.ZoneName = dmgZone;
         localDamage.HealthLoss = Math.Max(0, customHealthDamage);
@@ -267,6 +269,20 @@ modded class PlayerBase
         {
             packet.GlobalBloodLoss = 0;
             packet.GlobalShockLoss = customShockDamage;
+        }
+
+        // These rates use the final local HEALTH damage amount for both pools.
+        // Replace the old shock result for these zones; do not add a second hit.
+        if (dmgZone == "Torso")
+        {
+            packet.GlobalHealthLoss = localDamage.HealthLoss;
+            packet.GlobalShockLoss = localDamage.HealthLoss;
+        }
+        else if (dmgZone == "Head" || dmgZone == "Brain")
+        {
+            // Only firearm hits reach the custom path above.
+            packet.GlobalHealthLoss = localDamage.HealthLoss * 2.0;
+            packet.GlobalShockLoss = localDamage.HealthLoss * 3.0;
         }
 
         if (testHit)
