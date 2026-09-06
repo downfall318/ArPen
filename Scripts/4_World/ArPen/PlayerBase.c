@@ -134,6 +134,15 @@ modded class PlayerBase
         float shockDamage = damageResult.GetDamage(dmgZone, "Shock");
 
         EntityAI armor = ArPenBallistics.FindArmor(this, dmgZone);
+        // Armor already ruined before this hit uses the native damage event.
+        // An intact plate that this hit ruins still completes this calculation.
+        if (armor && armor.IsRuined())
+        {
+            bool acceptedRuined = super.EEOnDamageCalculated(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
+            if (testHit && acceptedRuined)
+                GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(testHit.Finish, 0, false, this);
+            return acceptedRuined;
+        }
         ArPenArmorData armorData;
         ArPenHitResult hitResult;
         bool enrolledArmor = false;

@@ -23,9 +23,9 @@ For an existing offline mission, copy only `ArPenTest.enable` into its mission d
 
 ## Interpretation
 
-For enrolled ammunition, the original health-damage formula applies unchanged only to the struck zone. There is no explicit global-health write, transfer coefficient scaling, or scripted fatal-zone kill. DayZ remains responsible for native consequences of damaged zones. Blood and shock use the original custom amounts.
+For custom-handled enrolled ammunition, the original health-damage formula applies unchanged only to the struck zone. There is no explicit global-health write, transfer coefficient scaling, or scripted fatal-zone kill. DayZ remains responsible for native consequences of damaged zones. Blood and shock use the original custom amounts.
 
-Unarmored and already-ruined armor hits also retain the original custom calculation and local-only health application; they do not switch to native global bullet damage after armor breaks. Unsupported/soft armor, unenrolled ammunition and non-firearm events still use native handling. Penetrating custom hits retain bleeding eligibility checks; stopped hits do not create bullet wounds.
+Unarmored hits retain the original custom calculation and local-only health application. Armor already ruined before impact uses the native damage event, including native global damage. A hit that starts against intact armor and ruins it still completes the custom calculation once; subsequent hits use native handling. Unsupported/soft armor, unenrolled ammunition and non-firearm events still use native handling. Penetrating custom hits retain bleeding eligibility checks; stopped hits do not create bullet wounds.
 
 Each queued hard-armor hit contains damage amounts and samples current pools when applied; packets queued after the target dies are discarded. Armor still takes damage once in the original calculation. The custom path does not replay EEHitBy: third-party hooks that rely on that native event are not restored by this fix.
 
@@ -48,7 +48,7 @@ API reference: https://github.com/BohemiaInteractive/DayZ-Script-Diff
 
 DayZ compilation and runtime checks are pending. Source checks cannot establish engine-side consequences of local health setters.
 
-- Fire repeated 9mm shots at a plate carrier until it is ruined and continue firing. The original formula's health amount must remain a local-zone subtraction before and after ruin; no custom global health subtraction is made.
+- Fire repeated 9mm shots at a plate carrier until it is ruined and continue firing. While the plate stops the bullet, the original formula's health amount must be applied locally, with no explicit custom global-health subtraction. Once the plate is already ruined before impact, expect native damage handling.
 - Repeat unarmored, helmet, torso and limb tests. Confirm local HP, bleeds and shock in the HUD. Native death/injury consequences of zone damage remain possible.
 - Fire a short burst: each packet uses current local HP, with no stale health restoration.
 - Verify soft/unsupported armor, unenrolled ammunition and melee/explosion retain native handling.
