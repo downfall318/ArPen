@@ -5,7 +5,7 @@ This branch adds a local **DayZDiag offline** penetration test range. Multiplaye
 ## Start
 
 1. Build this branch as the ArPen mod, including both `Scripts` and `GUI`. Keep the existing `ArPen` PBO prefix so layout paths resolve. Load this build instead of the Workshop/release copy.
-2. Copy `missions/ArPenTest.ChernarusPlus` into your DayZ `missions` directory. Confirm the copied folder contains `mission.c` and `ArPenTest.enable`. DayZDiag loads `mission.c`; the marker enables the controls.
+2. Copy `missions/ArPenTest.ChernarusPlus` into your DayZ `missions` directory. Confirm the copied folder contains `init.c` and `ArPenTest.enable`. The mission entry script is `init.c`; the marker enables the controls.
 3. Launch DayZDiag with your built mod and `-mission=missions/ArPenTest.ChernarusPlus` (plus your usual local mod/profile arguments).
 4. The supplied mission creates the tester with a backpack, M4A1 and ammunition. Load a magazine, press **F5**, then spawn a selected helmet/vest, all helmets/vests, or two unarmored controls.
 5. Close F5 to shoot. **F6** creates the damage display on first press and hides/shows it afterward. Move to open ground before spawning: targets are placed eight metres forward at terrain height, not checked against buildings or obstacles.
@@ -14,9 +14,11 @@ For an existing **working** offline mission, copy only `ArPenTest.enable` into i
 
 ### Loading stays on the splash screen
 
-If the RPT reports `Mission script has no main function, player connect will stay disabled!`, check the `Creating Mission:` line. The range should load `missions\ArPenTest.ChernarusPlus\mission.c`, which contains `void main()` and `CreateCustomMission`. Rebuilding the mod does not install this separate mission folder.
+If the RPT reports `Mission script has no main function, player connect will stay disabled!`, confirm `init.c` is directly inside the folder selected by `-mission`. It must contain `void main()` and `CreateCustomMission`. The engine's `Creating Mission: ...mission.c` message does not mean the entry script should be renamed to mission.c. The previous instructions to rename init.c were incorrect.
 
-If your launch arguments still select `firstMission.ChernarusPlus`, change them to `-mission=missions/ArPenTest.ChernarusPlus` after copying the supplied range. Alternatively, to replace an unused/broken firstMission with this range, copy the supplied `mission.c` and `ArPenTest.enable` into that folder. Back up any custom mission script before replacing it. Do not delete generated profile JSON files to fix a missing mission entry point.
+For this range, install `init.c` and `ArPenTest.enable` in `DayZ/missions/ArPenTest.ChernarusPlus`. If you followed the earlier rename instruction, rename that supplied mission.c back to init.c (ensure it is not init.c.txt). Rebuilding the mod does not copy this separate mission folder. Keep the same mission launch argument and your generated profile JSON files.
+
+Reference: [Bohemia's Modding Basics — offline mission setup](https://community.bistudio.com/wiki/DayZ:Modding_Basics) specifies init.c as the entry point.
 
 The `PluginConfigDebugProfile is not Registred` diagnostic comes from DayZ's plugin manager, before ArPen mission `OnInit`. Keep it separate from the missing-main failure when reading logs; changing armor profiles does not register that engine plugin.
 
