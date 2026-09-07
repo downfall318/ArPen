@@ -1,6 +1,7 @@
 class ArPenHitResult
 {
     EntityAI Armor;
+    int TileIndex = -1;
     float ArmorHealth01;
     float ItemHealth;
     float ItemMaxHealth;
@@ -101,7 +102,7 @@ class ArPenBallistics
         // Ruined armor has no ballistic resistance. Do this before deriving
         // effective Krupp or thickness so a zero-health item cannot stop a hit
         // through the normal depth calculation.
-        if (armorItem.IsRuined() || result.ItemHealth <= 0.0)
+        if (armorItem.IsRuined() || result.ItemHealth <= 0.0 || armorItem.ArPen_GetCurrentArmorHealth(armorData) <= 0.0)
         {
             result.CurrentArmorHealth = 0.0;
             result.ArmorHealth01 = 0.0;
@@ -118,6 +119,23 @@ class ArPenBallistics
 
         result.CurrentArmorHealth = armorItem.ArPen_GetCurrentArmorHealth(armorData);
         result.ArmorHealth01 = Math.Min(Math.Clamp(armorItem.GetHealth01("", "Health"), 0.0, 1.0), Math.Clamp(result.CurrentArmorHealth / result.BaseArmorHealth, 0.0, 1.0));
+        int tileCount = ArPenConfig.TileCount(armorData);
+        if (tileCount > 0)
+        {
+            // Uniformly sample all equal-area tiles, including previously defeated ones.
+            result.TileIndex = Math.RandomInt(0, tileCount);
+            result.BaseArmorHealth = armorData.Tiles[result.TileIndex];
+            result.ArmorHealth01 = armorItem.ArPen_GetTileHealth01(armorData, result.TileIndex);
+            result.CurrentArmorHealth = result.BaseArmorHealth * result.ArmorHealth01;
+            if (result.CurrentArmorHealth <= 0.0)
+            {
+                result.ExitVelocity = result.ImpactVelocity;
+                result.Penetrated = true;
+                result.DepthRatio = 1.0;
+                result.DamageMultiplier = Math.Clamp(result.ImpactVelocity / Math.Max(ammoData.InitialVelocity, 0.001), 0.0, 1.0);
+                return result;
+            }
+        }
         result.CurrentKrupp = armorData.BaseKrupp;
         if (armorData.MaterialType == "Steel")
             result.EffectiveKrupp = armorData.BaseKrupp;

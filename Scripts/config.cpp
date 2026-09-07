@@ -10,7 +10,7 @@ class CfgPatches
             "DZ_Weapons_Ammunition"
         };
 
-        units[] = {};
+        units[] = {"ArPen_TiledPlateCarrierVest"};
         weapons[] = {};
     };
 };
@@ -48,6 +48,29 @@ class CfgMods
                     "ArPen/Scripts/5_Mission"
                 };
             };
+        };
+    };
+};
+
+// Optional tiled variant. Existing plate carriers retain their monolithic profile.
+class CfgVehicles
+{
+    class PlateCarrierVest;
+    class ArPen_TiledPlateCarrierVest : PlateCarrierVest
+    {
+        scope = 2;
+        displayName = "Tiled Ceramic Plate Carrier";
+        descriptionShort = "Ceramic body armor with independently damaged tiles.";
+        class ArPen
+        {
+            enabled = 1;
+            krupp = 1500;
+            armorHealth = 800;
+            thicknessMM = 24;
+            armorLevel = "III";
+            materialID = "silicon_carbide";
+            materialType = "Ceramic";
+            tiles[] = {800,800,800,800,800,800,800,800,800,800,800,800,800,800,800,800};
         };
     };
 };

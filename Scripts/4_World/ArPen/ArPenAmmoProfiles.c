@@ -59,6 +59,17 @@ class ArPenAmmoProfiles
         Save();
     }
 
+    static bool IsDisabled(string ammoClass)
+    {
+        Initialize();
+        foreach (ArPenAmmoProfile profile : s_File.Profiles)
+        {
+            if (profile && profile.AmmoClass == ammoClass && !profile.Enabled)
+                return true;
+        }
+        return false;
+    }
+
     static bool GetAmmoData(string ammoClass, out ArPenAmmoData data)
     {
         Initialize();
