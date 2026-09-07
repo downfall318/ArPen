@@ -12,6 +12,8 @@ class ArPenArmorProfile
     float ArmorSchemaHealthCapacity = 100.0;
     float Krupp = 350.0;
     float ArmorHealth = 100.0;
+    ref array<float> Tiles = new array<float>;
+    float TileDamageMultiplier = 3.0;
     float ThicknessMM = 4.0;
     float MinHealthFactor = 0.35;
     float HealthExponent = 1.25;
@@ -89,6 +91,13 @@ class ArPenArmorProfiles
         Save();
     }
 
+    static bool IsDisabled(string armorClass)
+    {
+        Initialize();
+        ArPenArmorProfile profile = FindProfile(armorClass);
+        return profile && !profile.Enabled;
+    }
+
     static bool GetArmorData(string armorClass, out ArPenArmorData data)
     {
         Initialize();
@@ -107,6 +116,9 @@ class ArPenArmorProfiles
             data.ArmorSchemaHealthCapacity = profile.ArmorSchemaHealthCapacity;
             data.BaseKrupp = profile.Krupp;
             data.BaseArmorHealth = profile.ArmorHealth;
+            data.TileDamageMultiplier = profile.TileDamageMultiplier;
+            if (profile.Tiles)
+                data.Tiles.Copy(profile.Tiles);
             data.ThicknessMM = profile.ThicknessMM;
             data.MinHealthFactor = profile.MinHealthFactor;
             data.HealthExponent = profile.HealthExponent;
@@ -299,6 +311,13 @@ class ArPenArmorProfiles
         added += AddVanillaArmor("GorkaHelmet", "IIIA", 1100.0, 100.0, 10.16, "uhmwpe", "Polymer");
         added += AddVanillaArmor("Mich2001Helmet", "IIIA", 1100.0, 100.0, 10.16, "uhmwpe", "Polymer");
         added += AddVanillaArmor("Ssh68Helmet", "Fragment", 6000.0, 85.0, 1.5, "ar500_steel", "Steel");
+        added += AddVanillaArmor("ArPen_TiledPlateCarrierVest", "III", 1500.0, 800.0, 24.0, "silicon_carbide", "Ceramic");
+        ArPenArmorProfile tiled = FindProfile("ArPen_TiledPlateCarrierVest");
+        if (tiled)
+        {
+            for (int tile = 0; tile < 16; tile++)
+                tiled.Tiles.Insert(800.0);
+        }
         return added;
     }
 

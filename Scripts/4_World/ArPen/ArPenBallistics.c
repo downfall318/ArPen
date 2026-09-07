@@ -1,6 +1,8 @@
 class ArPenHitResult
 {
     EntityAI Armor;
+    int TileIndex = -1;
+    bool StoppedByDestroyedTile;
     float ArmorHealth01;
     float ItemHealth;
     float ItemMaxHealth;
@@ -101,7 +103,7 @@ class ArPenBallistics
         // Ruined armor has no ballistic resistance. Do this before deriving
         // effective Krupp or thickness so a zero-health item cannot stop a hit
         // through the normal depth calculation.
-        if (armorItem.IsRuined() || result.ItemHealth <= 0.0)
+        if (armorItem.IsRuined() || result.ItemHealth <= 0.0 || armorItem.ArPen_GetCurrentArmorHealth(armorData) <= 0.0)
         {
             result.CurrentArmorHealth = 0.0;
             result.ArmorHealth01 = 0.0;
@@ -118,6 +120,23 @@ class ArPenBallistics
 
         result.CurrentArmorHealth = armorItem.ArPen_GetCurrentArmorHealth(armorData);
         result.ArmorHealth01 = Math.Min(Math.Clamp(armorItem.GetHealth01("", "Health"), 0.0, 1.0), Math.Clamp(result.CurrentArmorHealth / result.BaseArmorHealth, 0.0, 1.0));
+        int tileCount = ArPenConfig.TileCount(armorData);
+        if (tileCount > 0)
+        {
+            // Uniformly sample all equal-area tiles, including previously defeated ones.
+            result.TileIndex = Math.RandomInt(0, tileCount);
+            result.BaseArmorHealth = armorData.Tiles[result.TileIndex];
+            result.ArmorHealth01 = armorItem.ArPen_GetTileHealth01(armorData, result.TileIndex);
+            result.CurrentArmorHealth = result.BaseArmorHealth * result.ArmorHealth01;
+            if (result.CurrentArmorHealth <= 0.0)
+            {
+                result.ExitVelocity = result.ImpactVelocity;
+                result.Penetrated = true;
+                result.DepthRatio = 1.0;
+                result.DamageMultiplier = Math.Clamp(result.ImpactVelocity / Math.Max(ammoData.InitialVelocity, 0.001), 0.0, 1.0);
+                return result;
+            }
+        }
         result.CurrentKrupp = armorData.BaseKrupp;
         if (armorData.MaterialType == "Steel")
             result.EffectiveKrupp = armorData.BaseKrupp;
@@ -156,7 +175,10 @@ class ArPenBallistics
         if (armorData.MaterialType == "Ceramic")
         {
             result.DamageFractionOfRemaining = CeramicDamageFraction(result.ArmorHealth01, severity);
-            result.ArmorDamage = Math.Min(result.CurrentArmorHealth, result.DamageFractionOfRemaining * result.BaseArmorHealth);
+            float tileDamageScale = 1.0;
+            if (result.TileIndex >= 0)
+                tileDamageScale = Math.Max(0.0, armorData.TileDamageMultiplier);
+            result.ArmorDamage = Math.Min(result.CurrentArmorHealth, result.DamageFractionOfRemaining * result.BaseArmorHealth * tileDamageScale);
         }
         else if (armorData.MaterialType == "Steel")
         {
@@ -193,6 +215,9 @@ class ArPenBallistics
 
         if (result.CurrentArmorHealth - result.ArmorDamage <= Math.Max(0.5, result.BaseArmorHealth * 0.002))
             result.ArmorDamage = result.CurrentArmorHealth;
+        // Penetration was decided from pre-hit resistance. A tile sacrificed
+        // while stopping this bullet must not injure the wearer on this hit.
+        result.StoppedByDestroyedTile = result.TileIndex >= 0 && !result.Penetrated && result.CurrentArmorHealth > 0.0 && result.ArmorDamage >= result.CurrentArmorHealth;
         CalculateMaterialResponse(result, armorData);
         if (armorData.IsHelmet)
             CalculateHelmetResponse(result, armorData);

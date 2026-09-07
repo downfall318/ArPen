@@ -180,7 +180,16 @@ modded class PlayerBase
             hitResult = ArPenBallistics.Calculate(ammoData, armorData, armor, speedCoef, modelPos);
             ItemBase armorItem = ItemBase.Cast(armor);
             if (armorItem)
-                armorItem.ArPen_ApplyDamage(armorData, hitResult.ArmorDamage, hitResult.AddedMetalLossVolumeMM3, hitResult.AddedDentVolumeMM3);
+                armorItem.ArPen_ApplyDamage(armorData, hitResult);
+            if (hitResult.StoppedByDestroyedTile)
+            {
+                if (testHit)
+                {
+                    testHit.Result = hitResult;
+                    GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(testHit.Finish, 0, false, this);
+                }
+                return false;
+            }
         }
         else
         {

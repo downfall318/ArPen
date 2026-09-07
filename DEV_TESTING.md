@@ -80,3 +80,9 @@ DayZ compilation and runtime checks are pending. Source checks cannot establish 
 - Global health/shock transfer and immediate blood damage are unchanged. Bleeding subsequently drains blood through the native manager.
 
 Compile and verify these cases in DayZ; no runtime verification was available here.
+
+## Tiled ceramic regression
+
+Select `ArPen_TiledPlateCarrierVest` in the body-armor list. Its 16 tiles default to 3× damage. The F6 hit display identifies the selected tile and reports a sacrificed tile when a stopped shot exhausts it. That hit must cause no wearer health, blood, or shock loss. Subsequent hits may choose a different tile or penetrate the defeated tile. Four defeated tiles ruin the carrier.
+
+The updated fixed item-save layout comes from main; use a fresh test world or reset incompatible earlier item persistence. Existing JSON profiles are not overwritten.

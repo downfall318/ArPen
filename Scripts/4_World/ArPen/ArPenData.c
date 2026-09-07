@@ -8,6 +8,9 @@ class ArPenArmorData
     float ArmorSchemaHealthCapacity;
     float BaseKrupp;
     float BaseArmorHealth;
+    // Equal-area ceramic tiles; entries are the maximum HP of each tile.
+    ref array<float> Tiles = new array<float>;
+    float TileDamageMultiplier = 3.0;
     float ThicknessMM;
     float MinHealthFactor;
     float HealthExponent;
@@ -73,6 +76,8 @@ class ArPenConfig
         if (!armor)
             return false;
 
+        if (ArPenArmorProfiles.IsDisabled(armor.GetType()))
+            return false;
         if (ArPenArmorProfiles.GetArmorData(armor.GetType(), data))
             return true;
 
@@ -87,6 +92,9 @@ class ArPenConfig
         data.UseSimpleHealthScaling = GetGame().ConfigGetInt(path + " useSimpleHealthScaling") == 1;
         data.BaseKrupp = ReadFloat(path, "krupp", 0.0);
         data.BaseArmorHealth = ReadFloat(path, "armorHealth", 100.0);
+        data.TileDamageMultiplier = ReadFloat(path, "tileDamageMultiplier", 3.0);
+        if (GetGame().ConfigIsExisting(path + " tiles"))
+            GetGame().ConfigGetFloatArray(path + " tiles", data.Tiles);
         data.ArmorLevel = ReadString(path, "armorLevel", "Unrated");
         data.ArmorSchemaHealthDamageMultiplier = ReadFloat(path, "armorSchemaHealthDamageMultiplier", 1.0);
         data.ArmorSchemaHealthCapacity = ReadFloat(path, "armorSchemaHealthCapacity", data.BaseArmorHealth);
@@ -147,8 +155,22 @@ class ArPenConfig
         return data.Enabled && data.BaseKrupp > 0.0 && data.ThicknessMM > 0.0;
     }
 
+    static int TileCount(ArPenArmorData data)
+    {
+        if (data.MaterialType != "Ceramic" || !data.Tiles || data.Tiles.Count() == 0)
+            return 0;
+        foreach (float capacity : data.Tiles)
+        {
+            if (capacity <= 0.0)
+                return 0;
+        }
+        return data.Tiles.Count();
+    }
+
     static bool ReadAmmo(string ammo, out ArPenAmmoData data)
     {
+        if (ArPenAmmoProfiles.IsDisabled(ammo))
+            return false;
         if (ArPenAmmoProfiles.GetAmmoData(ammo, data))
             return true;
 
