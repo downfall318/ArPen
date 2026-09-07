@@ -66,6 +66,7 @@ class CfgVehicles
             enabled = 1;
             krupp = 1500;
             armorHealth = 800;
+            tileDamageMultiplier = 3.0;
             thicknessMM = 24;
             armorLevel = "III";
             materialID = "silicon_carbide";

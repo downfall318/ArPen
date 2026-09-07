@@ -10,6 +10,7 @@ class ArPenArmorData
     float BaseArmorHealth;
     // Equal-area ceramic tiles; entries are the maximum HP of each tile.
     ref array<float> Tiles = new array<float>;
+    float TileDamageMultiplier = 3.0;
     float ThicknessMM;
     float MinHealthFactor;
     float HealthExponent;
@@ -91,6 +92,7 @@ class ArPenConfig
         data.UseSimpleHealthScaling = GetGame().ConfigGetInt(path + " useSimpleHealthScaling") == 1;
         data.BaseKrupp = ReadFloat(path, "krupp", 0.0);
         data.BaseArmorHealth = ReadFloat(path, "armorHealth", 100.0);
+        data.TileDamageMultiplier = ReadFloat(path, "tileDamageMultiplier", 3.0);
         if (GetGame().ConfigIsExisting(path + " tiles"))
             GetGame().ConfigGetFloatArray(path + " tiles", data.Tiles);
         data.ArmorLevel = ReadString(path, "armorLevel", "Unrated");

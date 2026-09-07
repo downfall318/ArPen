@@ -153,6 +153,7 @@ details summary { cursor:pointer; font-weight:500; margin-bottom:8px; }
         </select>
       </div>
       <div class="control"><label class="form-label" for="ap-krupp">Armor Krupp k</label><input class="form-control" id="ap-krupp" type="number" min="1" step="25"></div>
+      <div class="control"><label class="form-label" for="ap-tile-damage">Ceramic tile damage ×</label><input class="form-control" id="ap-tile-damage" type="number" min="0" step="0.25" value="3"></div>
       <div class="control"><label class="form-label" for="ap-tiles">Ceramic tile HP list (comma separated)</label><input class="form-control" id="ap-tiles" placeholder="Empty = one original plate; e.g. 800,800,800,800"></div>
       <div class="control"><label class="form-label" for="ap-hp">Armor HP</label><input class="form-control" id="ap-hp" type="number" min="1" step="1"></div>
       <div class="control"><label class="form-label" for="ap-t">Thickness T (mm)</label><input class="form-control" id="ap-t" type="number" min="0.1" step="0.1"></div>
@@ -222,7 +223,7 @@ details summary { cursor:pointer; font-weight:500; margin-bottom:8px; }
       <div style="margin-top:10px">
         <button class="btn btn-primary" id="enroll-armor" type="button">Enroll armor</button>
       </div>
-      <div class="hint">Ceramic tiles are equal-area hit locations, not layers traversed by one bullet. Enter tile maximum HP values in the live tile list. Each shot selects one tile; holes remain selectable. Whole armor HP follows average tile health until 25% of tiles are defeated, then reaches zero. One tile keeps the original curve. The lab uses a repeatable random sequence across velocity bins. Ceramic/polymer durability uses remaining HP. Metal uses cumulative wound-channel plus compromised-dent volume: 100% HP is intact and 0% HP means 25% of original panel volume is lost/compromised. Metal Krupp never falls; accumulated dent volume reduces effective thickness across the configured surface area.</div>
+      <div class="hint">Ceramic tiles are equal-area hit locations, not layers traversed by one bullet. Enter tile maximum HP values in the live tile list. Each shot selects one tile; holes remain selectable. Whole armor HP follows average tile health until 25% of tiles are defeated, then reaches zero. Tile damage defaults to 3× after penetration is decided. A stopped hit that destroys its tile causes zero wearer H/S. One tile with damage ×1 keeps the original durability curve. The lab uses a repeatable random sequence across velocity bins. Ceramic/polymer durability uses remaining HP. Metal uses cumulative wound-channel plus compromised-dent volume: 100% HP is intact and 0% HP means 25% of original panel volume is lost/compromised. Metal Krupp never falls; accumulated dent volume reduces effective thickness across the configured surface area.</div>
     </details>
   </div>
   <div class="legend" aria-label="Penetration legend">
@@ -302,6 +303,7 @@ details summary { cursor:pointer; font-weight:500; margin-bottom:8px; }
     krupp: root.querySelector('#ap-krupp'),
     hp: root.querySelector('#ap-hp'),
     tiles: root.querySelector('#ap-tiles'),
+    tileDamage: root.querySelector('#ap-tile-damage'),
     t: root.querySelector('#ap-t'),
     areal: root.querySelector('#ap-areal'),
     type: root.querySelector('#ap-type'),
@@ -334,6 +336,7 @@ details summary { cursor:pointer; font-weight:500; margin-bottom:8px; }
     fields.krupp.value = p.k;
     fields.hp.value = p.hp;
     fields.tiles.value = (p.tiles || []).join(',');
+    fields.tileDamage.value = p.tileDamageMultiplier ?? 3;
     fields.t.value = p.t;
     fields.areal.value = p.areal;
     fields.type.value = p.type;
@@ -422,7 +425,7 @@ details summary { cursor:pointer; font-weight:500; margin-bottom:8px; }
       return seed / 4294967296;
     };
   }
-  function one(a, p, v, s, w, zone, random = Math.random) {
+  function one(a, p, v, s, w, zone, random = Math.random, tileDamageScale = 1) {
     if (s.hp <= 0) {
       return { v, damage: 0, penetrated: true, level: effective(a, .5 * a.mass * v * v), energy: .5 * a.mass * v * v, exit: v, B: 0, D: 1, S: 0, S_energy: 0, keff: 0, thickness: 0, playerHealthDamage: null, playerShockDamage: null };
     }
@@ -432,10 +435,15 @@ details summary { cursor:pointer; font-weight:500; margin-bottom:8px; }
       const tileIndex = Math.floor(random() * capacities.length);
       const before = s.hp;
       const tileState = { hp: s.tiles[tileIndex] * capacities[tileIndex] };
-      const result = one(a, { ...p, hp: capacities[tileIndex], tiles: [] }, v, tileState, w, zone, random);
+      const result = one(a, { ...p, hp: capacities[tileIndex], tiles: [] }, v, tileState, w, zone, random, Math.max(0, p.tileDamageMultiplier ?? 3));
+      const stoppedByDestroyedTile = !result.penetrated && tileState.hp <= 0;
+      if (stoppedByDestroyedTile) {
+        result.playerHealthDamage = 0;
+        result.playerShockDamage = 0;
+      }
       s.tiles[tileIndex] = tileState.hp / capacities[tileIndex];
       s.hp = p.hp * tileCondition(s.tiles);
-      return { ...result, damage: Math.max(0, before - s.hp), tileDamage: result.damage, tileIndex, tileHealth: tileState.hp, defeatedTiles: s.tiles.filter(h => h <= 0).length, tileCount: capacities.length };
+      return { ...result, stoppedByDestroyedTile, damage: Math.max(0, before - s.hp), tileDamage: result.damage, tileIndex, tileHealth: tileState.hp, defeatedTiles: s.tiles.filter(h => h <= 0).length, tileCount: capacities.length };
     }
     const maxHp = Math.max(p.hp, 1e-6); // selected armor component's configured maximum health
     const energy = 0.5 * a.mass * v * v;
@@ -491,7 +499,7 @@ details summary { cursor:pointer; font-weight:500; margin-bottom:8px; }
     let damage = 0;
     let channelVolume = 0, dentVolume = 0, panelVolume = 0, volumeLoss = 0;
     if (p.type === 'Ceramic') {
-      damage = ceramicDamageFraction(health01, S) * maxHp;
+      damage = ceramicDamageFraction(health01, S) * maxHp * tileDamageScale;
       damage = Math.min(damage, s.hp);
       s.hp = Math.max(0, s.hp - damage);
     } else if (p.type === 'Steel') {
@@ -600,6 +608,7 @@ details summary { cursor:pointer; font-weight:500; margin-bottom:8px; }
     a.ref = 0.5 * a.mass * a.v0 * a.v0;
     const p = {
       ...sourceArmor,
+      tileDamageMultiplier: Math.max(0, Number(fields.tileDamage.value)),
       tiles: fields.tiles.value.trim() ? fields.tiles.value.split(',').map(x => Number(x.trim())) : [],
       k: Math.max(1, Number(fields.krupp.value) || sourceArmor.k),
       hp: Math.max(1, Number(fields.hp.value) || sourceArmor.hp),
@@ -610,8 +619,8 @@ details summary { cursor:pointer; font-weight:500; margin-bottom:8px; }
       metalSurface: Math.max(1, Number(fields.metalSurface.value) || sourceArmor.metalSurface || (sourceArmor.helmet ? 1200 : 750)),
       dentSpread: Math.max(1, Number(fields.dentSpread.value) || sourceArmor.dentSpread || 4)
     };
-    if (p.tiles.some(h => !Number.isFinite(h) || h <= 0)) {
-      alert('Tile HP values must be positive numbers.');
+    if (!Number.isFinite(p.tileDamageMultiplier) || p.tiles.some(h => !Number.isFinite(h) || h <= 0)) {
+      alert('Tile HP values must be positive numbers and the damage multiplier must be finite.');
       return null;
     }
     const w = Math.max(0, Number(wInput.value) || 0);
@@ -784,6 +793,7 @@ details summary { cursor:pointer; font-weight:500; margin-bottom:8px; }
           `${d.damage.toFixed(1)} HP from shot ${shots}` +
           (d.hpBefore != null ? ` <span style="opacity:.7">(of ${d.hpBefore.toFixed(0)} remaining)</span>` : '') + `<br>` +
           status + `<br>` +
+          (d.stoppedByDestroyedTile ? 'Tile sacrificed: bullet stopped; no wearer damage.<br>' : '') +
           (d.tileCount ? `Tile ${d.tileIndex + 1}/${d.tileCount}: ${d.tileHealth.toFixed(1)} HP remaining · ${d.defeatedTiles} defeated (failure at ${Math.ceil(d.tileCount / 4)})<br>` : '') +
           (d.hpAfter != null ? `HP after: ${d.hpAfter.toFixed(1)}` + (d.destroyed || d.alreadyDead ? ' — plate gone' : '') + `<br>` : '') +
           `${(d.energy||0).toFixed(0)} J · B=${(d.B||0).toFixed(1)} mm · effective T=${(d.thickness||0).toFixed(3)} mm · exit=${(d.exit||0).toFixed(0)} m/s<br>` +

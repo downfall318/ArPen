@@ -17,14 +17,14 @@ for (const v of [0, 250, 550, 940]) {
   const mono = { hp: 800 }, single = { hp: 800 };
   for (let hit = 0; hit < 20; hit++) {
     const a = ctx.one(ammo, plate, v, mono, 0, 'Torso');
-    const b = ctx.one(ammo, {...plate, tiles: [800]}, v, single, 0, 'Torso', () => 0);
+    const b = ctx.one(ammo, {...plate, tiles: [800], tileDamageMultiplier: 1}, v, single, 0, 'Torso', () => 0);
     near(mono.hp, single.hp);
     near(a.damage, b.damage);
     assert.equal(a.penetrated, b.penetrated);
   }
 }
 // Force full severity: one intact tile retains the original 100→75→25→0 curve.
-const tiled = {...plate, tiles: Array(16).fill(800)};
+const tiled = {...plate, tiles: Array(16).fill(800), tileDamageMultiplier: 1};
 const state = {hp: 800};
 const strong = {...ammo, base: 1000};
 for (const expected of [.75, .25, 0]) {
@@ -62,3 +62,30 @@ const random = ctx.tileRandom(0x41525045), counts = Array(16).fill(0);
 for (let i=0; i<160000; i++) counts[Math.floor(random()*16)]++;
 assert.ok(counts.every(n => n > 9500 && n < 10500), 'Sampling should cover every tile uniformly');
 console.log('Lab regressions passed: single-tile parity, tile independence, holes, failure threshold, transfers, and deterministic sampling.');
+
+// Default tiles take 3x damage, but penetration still uses pre-hit condition.
+const fragile = {...plate, k: 15000, tiles: Array(16).fill(800)};
+const fragileState = {hp: 800};
+const first = ctx.one(strong, fragile, 940, fragileState, 0, 'Torso', () => 0);
+near(fragileState.tiles[0], .25);
+assert.equal(first.penetrated, false);
+assert.ok(first.playerHealthDamage > 0, 'A surviving tile retains normal stopped trauma');
+const last = ctx.one(strong, fragile, 940, fragileState, 0, 'Torso', () => 0);
+assert.equal(fragileState.tiles[0], 0);
+assert.equal(last.penetrated, false);
+assert.equal(last.stoppedByDestroyedTile, true);
+assert.equal(last.playerHealthDamage, 0);
+assert.equal(last.playerShockDamage, 0);
+const next = ctx.one(strong, fragile, 940, fragileState, 0, 'Torso', () => 0);
+assert.equal(next.penetrated, true);
+assert.equal(next.stoppedByDestroyedTile, false);
+// Penetrating destruction must not trigger the stopped-hit exemption.
+const perforated = ctx.one(strong, {...fragile, k: 1, tileDamageMultiplier: 4}, 940, {hp: 800}, 0, 'Head', () => 0);
+assert.equal(perforated.tileHealth, 0);
+assert.equal(perforated.penetrated, true);
+assert.equal(perforated.stoppedByDestroyedTile, false);
+// A multiplier on monolithic armor has no effect.
+const monoA = ctx.one(strong, {...plate, tileDamageMultiplier: 3}, 940, {hp: 800}, 0, 'Torso');
+const monoB = ctx.one(strong, plate, 940, {hp: 800}, 0, 'Torso');
+near(monoA.damage, monoB.damage);
+console.log('3x tile regressions passed: 100→25→0 health, sacrificial stop, next-hit hole, penetrating destruction, monolithic isolation.');

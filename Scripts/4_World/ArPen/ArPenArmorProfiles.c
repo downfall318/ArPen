@@ -13,6 +13,7 @@ class ArPenArmorProfile
     float Krupp = 350.0;
     float ArmorHealth = 100.0;
     ref array<float> Tiles = new array<float>;
+    float TileDamageMultiplier = 3.0;
     float ThicknessMM = 4.0;
     float MinHealthFactor = 0.35;
     float HealthExponent = 1.25;
@@ -115,6 +116,7 @@ class ArPenArmorProfiles
             data.ArmorSchemaHealthCapacity = profile.ArmorSchemaHealthCapacity;
             data.BaseKrupp = profile.Krupp;
             data.BaseArmorHealth = profile.ArmorHealth;
+            data.TileDamageMultiplier = profile.TileDamageMultiplier;
             if (profile.Tiles)
                 data.Tiles.Copy(profile.Tiles);
             data.ThicknessMM = profile.ThicknessMM;

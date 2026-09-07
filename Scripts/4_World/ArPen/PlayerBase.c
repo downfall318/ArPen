@@ -145,6 +145,8 @@ modded class PlayerBase
             ItemBase armorItem = ItemBase.Cast(armor);
             if (armorItem)
                 armorItem.ArPen_ApplyDamage(armorData, hitResult);
+            if (hitResult.StoppedByDestroyedTile)
+                return false;
         }
         else
         {

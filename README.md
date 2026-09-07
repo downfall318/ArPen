@@ -15,10 +15,12 @@ An armor profile's optional `Tiles` array holds each equal-area tile's maximum H
 ```
 
 - Each hit uniformly selects one tile, including defeated tiles. These are separate hit locations, not layers traversed by the same bullet.
+- `TileDamageMultiplier` defaults to **3.0** (3× total damage) for configured tiles; direct config uses `tileDamageMultiplier`. It multiplies tile health damage after penetration is decided, without changing maximum HP or penetration resistance for that hit. A full-severity sequence becomes 100% → 25% → defeated. Monolithic armor is unaffected.
+- When a stopped hit destroys its tile, the tile is consumed but the wearer takes no health, blood, or shock damage from that hit. Penetrating hits are not exempt, and subsequent hits through that hole penetrate normally.
 - Damage, effective Krupp, and stopped-hit severity use only the selected tile's remaining health and configured maximum HP. Healthy neighboring tiles keep their original resistance.
 - A hit on a defeated tile penetrates without further armor resistance.
 - Whole-item HP follows average normalized tile health, but becomes zero as soon as at least 25% of tiles are defeated. Sixteen tiles fail at four defeated tiles; five fail at two. The shot that defeats a tile completes using its pre-hit resistance.
-- Empty or omitted `Tiles` uses the original monolithic plate. `"Tiles": [800]` reproduces the original 800-HP ceramic calculation. Entries must be positive; unsupported material types or invalid arrays use the monolithic path.
+- Empty or omitted `Tiles` uses the original monolithic plate. `"Tiles": [800]` with `"TileDamageMultiplier": 1.0` reproduces the original 800-HP ceramic durability calculation. Entries must be positive; unsupported material types or invalid arrays use the monolithic path.
 - Repairs and external item damage are reflected in tile health. Repairs distribute restored condition proportionally across missing tile health. External damage scales tile health proportionally.
 
 The new item supplies its default `tiles[]` config as well, so it works with an existing profile file without rewriting that file. To customize or disable it there, add an explicit `ArPen_TiledPlateCarrierVest` profile. JSON enrollment takes precedence over config enrollment. Modded armor can also supply an `ArPen` config with `tiles[]` and the usual ceramic material/armor fields.
