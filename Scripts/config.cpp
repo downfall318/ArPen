@@ -51,9 +51,3 @@ class CfgMods
         };
     };
 };
-
-class ArPenSettings
-{
-    // Emergency switch: 1 makes every ammunition type use DayZ damage.
-    useLegacyFallback = 0;
-};

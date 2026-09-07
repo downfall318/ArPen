@@ -1,6 +1,5 @@
 modded class ItemBase
 {
-    protected static const int ARPEN_STORE_VERSION = 2;
     protected bool m_ArPenStateInitialized;
     protected float m_ArPenCurrentKrupp;
     protected float m_ArPenCurrentArmorHealth;
@@ -10,7 +9,6 @@ modded class ItemBase
     override void OnStoreSave(ParamsWriteContext ctx)
     {
         super.OnStoreSave(ctx);
-        ctx.Write(ARPEN_STORE_VERSION);
         ctx.Write(m_ArPenStateInitialized);
         ctx.Write(m_ArPenCurrentKrupp);
         ctx.Write(m_ArPenCurrentArmorHealth);
@@ -22,40 +20,9 @@ modded class ItemBase
     {
         if (!super.OnStoreLoad(ctx, version))
             return false;
-        int arPenVersion;
-        if (!ctx.Read(arPenVersion))
-            return true;
-        if (arPenVersion < 1 || arPenVersion > ARPEN_STORE_VERSION)
-            return false;
+        // One fixed layout, matching OnStoreSave; no legacy readers.
         if (!ctx.Read(m_ArPenStateInitialized) || !ctx.Read(m_ArPenCurrentKrupp) || !ctx.Read(m_ArPenCurrentArmorHealth))
             return false;
-
-        if (arPenVersion == 1)
-        {
-            // Consume legacy location-based data, but do not retain or use it.
-            int dentCount;
-            if (!ctx.Read(dentCount) || dentCount < 0 || dentCount > 256)
-                return false;
-            for (int dentIndex = 0; dentIndex < dentCount; dentIndex++)
-            {
-                vector oldDentPosition;
-                float oldDentDepth;
-                if (!ctx.Read(oldDentPosition) || !ctx.Read(oldDentDepth))
-                    return false;
-            }
-            int tileCount;
-            if (!ctx.Read(tileCount) || tileCount < 0 || tileCount > 256)
-                return false;
-            for (int tileIndex = 0; tileIndex < tileCount; tileIndex++)
-            {
-                vector oldTilePosition;
-                int oldHitCount;
-                float oldIntegrity;
-                if (!ctx.Read(oldTilePosition) || !ctx.Read(oldHitCount) || !ctx.Read(oldIntegrity))
-                    return false;
-            }
-            return true;
-        }
         return ctx.Read(m_ArPenMetalLossVolumeMM3) && ctx.Read(m_ArPenDentVolumeMM3);
     }
 
