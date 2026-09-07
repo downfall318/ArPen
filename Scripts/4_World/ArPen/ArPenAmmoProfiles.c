@@ -3,7 +3,6 @@ class ArPenAmmoProfile
     string AmmoClass;
     string DisplayName;
     bool Enabled = true;
-    bool UseLegacyFallback;
     float InitialVelocity;
     float BulletMassKG;
     float BallisticCoefficient;
@@ -15,7 +14,7 @@ class ArPenAmmoProfile
     float BloodDamageMultiplier = 0.5;
     float ShockDamageMultiplier = 1.0;
     // Applied to custom stopped-hit trauma, independently of DayZ GlobalArmor.
-    float BluntHeadHealthMultiplier = 0.80;
+    float BluntHeadHealthMultiplier = 0.20;
     float BluntTorsoHealthMultiplier = 0.10;
     float BluntHeadShockMultiplier = 0.45;
     float BluntTorsoShockMultiplier = 0.35;
@@ -25,7 +24,6 @@ class ArPenAmmoProfile
 
 class ArPenAmmoProfileFile
 {
-    int Version = 4;
     ref array<ref ArPenAmmoProfile> Profiles;
     void ArPenAmmoProfileFile() { Profiles = new array<ref ArPenAmmoProfile>; }
 };
@@ -44,23 +42,21 @@ class ArPenAmmoProfiles
         s_Loaded = true;
         s_File = new ArPenAmmoProfileFile();
 
+        // A server-owned profile is authoritative. Never seed, migrate, or
+        // rewrite it during initialization, including on a failed load.
         if (FileExist(FILE_PATH))
         {
             string loadError;
             ArPenAmmoProfileFile loadedFile;
-            if (JsonFileLoader<ArPenAmmoProfileFile>.LoadFile(FILE_PATH, loadedFile, loadError) && loadedFile)
+            if (JsonFileLoader<ArPenAmmoProfileFile>.LoadFile(FILE_PATH, loadedFile, loadError) && loadedFile && loadedFile.Profiles)
                 s_File = loadedFile;
             else
                 ErrorEx("[ArPen] Ammo profile load failed: " + loadError);
+            return;
         }
 
-        if (!s_File.Profiles)
-            s_File.Profiles = new array<ref ArPenAmmoProfile>;
-
-        int added = AddTestProfiles();
-        if (!FileExist(FILE_PATH) || added > 0)
-            Save();
-        Print("[ArPen] Loaded " + s_File.Profiles.Count().ToString() + " ammo profiles; added " + added.ToString());
+        AddTestProfiles();
+        Save();
     }
 
     static bool GetAmmoData(string ammoClass, out ArPenAmmoData data)
@@ -68,11 +64,10 @@ class ArPenAmmoProfiles
         Initialize();
         foreach (ArPenAmmoProfile profile : s_File.Profiles)
         {
-            if (!profile || profile.AmmoClass != ammoClass || !profile.Enabled || profile.UseLegacyFallback)
+            if (!profile || profile.AmmoClass != ammoClass || !profile.Enabled)
                 continue;
             data = new ArPenAmmoData();
             data.Enabled = profile.Enabled;
-            data.UseLegacyFallback = profile.UseLegacyFallback;
             data.InitialVelocity = profile.InitialVelocity;
             data.BulletMassKG = profile.BulletMassKG;
             data.BallisticCoefficient = profile.BallisticCoefficient;
@@ -126,7 +121,6 @@ class ArPenAmmoProfiles
 
     protected static int AddProfile(string ammoClass, string displayName, float velocity, float mass, float bc, float caliberMM, bool tracer, float damage, float decibels, float penMultiplier)
     {
-        // Do not write speculative defaults. Seed only classes loaded by DayZ or a mod.
         if (!GetGame().ConfigIsExisting("CfgAmmo " + ammoClass))
             return 0;
         foreach (ArPenAmmoProfile existing : s_File.Profiles)
@@ -154,15 +148,11 @@ class ArPenAmmoProfiles
     {
         if (!profile)
             return;
-
         profile.ReferenceThreatEnergyJ = 0.5 * profile.BulletMassKG * profile.InitialVelocity * profile.InitialVelocity;
         profile.ThreatLevel = "Unrated";
-
         if (profile.AmmoClass.Contains("556x45_AP") || profile.AmmoClass.Contains("308Win_AP"))
             profile.ThreatLevel = "IV";
-        else if (profile.AmmoClass == "Bullet_22")
-            profile.ThreatLevel = "Sub-IIA";
-        else if (profile.AmmoClass.Contains("RubberSlug"))
+        else if (profile.AmmoClass == "Bullet_22" || profile.AmmoClass.Contains("RubberSlug"))
             profile.ThreatLevel = "Sub-IIA";
         else if (profile.AmmoClass.Contains("380"))
             profile.ThreatLevel = "IIA";
@@ -183,13 +173,11 @@ class ArPenAmmoProfiles
     static string GetEffectiveThreatLevel(ArPenAmmoData ammoData, float impactEnergyJ)
     {
         Initialize();
-
         int nominalRank = GetThreatRank(ammoData.ThreatLevel);
         bool useEnergyEquivalent = nominalRank < 0;
         int maximumRank = nominalRank;
         if (useEnergyEquivalent)
-            maximumRank = 5; // Energy alone never promotes a load to construction-dependent Level IV.
-
+            maximumRank = 5;
         for (int rank = maximumRank; rank >= 0; rank--)
         {
             string candidate = GetThreatLevelForRank(rank);
@@ -201,7 +189,6 @@ class ArPenAmmoProfiles
                 return candidate;
             }
         }
-
         if (useEnergyEquivalent)
             return "Below rated range (KE)";
         return "Below " + ammoData.ThreatLevel;
@@ -212,13 +199,11 @@ class ArPenAmmoProfiles
         float floorJ = -1.0;
         foreach (ArPenAmmoProfile profile : s_File.Profiles)
         {
-            if (!profile || !profile.Enabled || profile.UseLegacyFallback || profile.ThreatLevel != threatLevel)
+            if (!profile || !profile.Enabled || profile.ThreatLevel != threatLevel)
                 continue;
-
             float referenceEnergyJ = profile.ReferenceThreatEnergyJ;
             if (referenceEnergyJ <= 0.0)
                 referenceEnergyJ = 0.5 * profile.BulletMassKG * profile.InitialVelocity * profile.InitialVelocity;
-
             if (referenceEnergyJ > 0.0 && (floorJ < 0.0 || referenceEnergyJ < floorJ))
                 floorJ = referenceEnergyJ;
         }
