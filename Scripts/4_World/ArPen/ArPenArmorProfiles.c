@@ -49,7 +49,6 @@ class ArPenArmorProfile
 
 class ArPenArmorProfileFile
 {
-    int Version = 12;
     ref array<ref ArPenArmorProfile> Profiles;
 
     void ArPenArmorProfileFile()
@@ -73,26 +72,21 @@ class ArPenArmorProfiles
         s_Loaded = true;
         s_File = new ArPenArmorProfileFile();
 
+        // Existing profiles are authoritative, including empty profiles.
         if (FileExist(FILE_PATH))
         {
             string loadError;
             ArPenArmorProfileFile loadedFile;
-            if (JsonFileLoader<ArPenArmorProfileFile>.LoadFile(FILE_PATH, loadedFile, loadError) && loadedFile)
+            if (JsonFileLoader<ArPenArmorProfileFile>.LoadFile(FILE_PATH, loadedFile, loadError) && loadedFile && loadedFile.Profiles)
                 s_File = loadedFile;
             else
                 ErrorEx("[ArPen] Armor profile load failed: " + loadError);
+            return;
         }
 
-        if (!s_File.Profiles)
-            s_File.Profiles = new array<ref ArPenArmorProfile>;
-
-        int removed = RemoveUnsupportedProfiles();
-        int added = AddVanillaTestProfiles();
-        added += EnrollLoadedArmorClasses();
-        if (!FileExist(FILE_PATH) || added > 0 || removed > 0)
-            Save();
-
-        Print("[ArPen] Loaded " + s_File.Profiles.Count().ToString() + " armor profiles; added " + added.ToString() + "; removed " + removed.ToString());
+        AddVanillaTestProfiles();
+        EnrollLoadedArmorClasses();
+        Save();
     }
 
     static bool GetArmorData(string armorClass, out ArPenArmorData data)
@@ -187,9 +181,9 @@ class ArPenArmorProfiles
             string path = "CfgVehicles " + className;
             if (!GetGame().ConfigIsExisting(path + " DamageSystem GlobalArmor Projectile"))
                 continue;
-            if (!HasArmorSlot(path))
-                continue;
             if (!IsSupportedHardBallisticClass(className))
+                continue;
+            if (!HasArmorSlot(path))
                 continue;
             if (FindProfile(className))
                 continue;
@@ -370,21 +364,6 @@ class ArPenArmorProfiles
         return armorClass.Contains("BallisticHelmet") || armorClass.Contains("GorkaHelmet") || armorClass.Contains("Mich2001Helmet");
     }
 
-    protected static int RemoveUnsupportedProfiles()
-    {
-        int removed;
-        for (int i = s_File.Profiles.Count() - 1; i >= 0; i--)
-        {
-            ArPenArmorProfile profile = s_File.Profiles[i];
-            if (!profile || !IsSupportedHardBallisticClass(profile.ArmorClass))
-            {
-                s_File.Profiles.Remove(i);
-                removed++;
-            }
-        }
-        return removed;
-    }
-
     protected static void ApplyVanillaTestDefaults(ArPenArmorProfile profile)
     {
         if (!profile)
@@ -435,17 +414,27 @@ class ArPenArmorProfiles
         if (!GetGame().ConfigIsExisting(path + " inventorySlot"))
             return false;
 
-        TStringArray slots = new TStringArray;
-        GetGame().ConfigGetTextArray(path + " inventorySlot", slots);
-        foreach (string slot : slots)
+        // Read each config value only with the matching accessor. Reading
+        // an inventorySlot array as text raises a config error during startup.
+        string slotPath = path + " inventorySlot";
+        int slotType = GetGame().ConfigGetType(slotPath);
+        if (slotType == CT_ARRAY)
         {
-            if (slot == "Vest" || slot == "Headgear")
-                return true;
+            TStringArray slots = new TStringArray;
+            GetGame().ConfigGetTextArray(slotPath, slots);
+            foreach (string slot : slots)
+            {
+                if (slot == "Vest" || slot == "Headgear")
+                    return true;
+            }
+            return false;
         }
-
-        string singleSlot;
-        if (GetGame().ConfigGetText(path + " inventorySlot", singleSlot))
-            return singleSlot == "Vest" || singleSlot == "Headgear";
+        if (slotType == CT_STRING)
+        {
+            string singleSlot;
+            if (GetGame().ConfigGetText(slotPath, singleSlot))
+                return singleSlot == "Vest" || singleSlot == "Headgear";
+        }
 
         return false;
     }

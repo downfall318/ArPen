@@ -48,7 +48,6 @@ class ArPenArmorData
 class ArPenAmmoData
 {
     bool Enabled;
-    bool UseLegacyFallback;
     float InitialVelocity;
     float BulletMassKG;
     float BallisticCoefficient;
@@ -150,12 +149,6 @@ class ArPenConfig
 
     static bool ReadAmmo(string ammo, out ArPenAmmoData data)
     {
-        if (GetGame().ConfigIsExisting("ArPenSettings useLegacyFallback"))
-        {
-            if (GetGame().ConfigGetInt("ArPenSettings useLegacyFallback") == 1)
-                return false;
-        }
-
         if (ArPenAmmoProfiles.GetAmmoData(ammo, data))
             return true;
 
@@ -165,7 +158,6 @@ class ArPenConfig
             return false;
         data = new ArPenAmmoData();
         data.Enabled = GetGame().ConfigGetInt(path + " enabled") == 1;
-        data.UseLegacyFallback = GetGame().ConfigGetInt(path + " useLegacyFallback") == 1;
         data.InitialVelocity = ReadFloat(path, "initialVelocity", 0.0);
         data.BulletMassKG = ReadFloat(path, "bulletMassKG", 0.0);
         data.BallisticCoefficient = ReadFloat(path, "ballisticCoefficient", 0.0);
@@ -182,7 +174,7 @@ class ArPenConfig
         data.BluntTorsoShockMultiplier = ReadFloat(path, "bluntTorsoShockMultiplier", 0.35);
         data.ThreatLevel = ReadString(path, "threatLevel", "Unrated");
         data.ReferenceThreatEnergyJ = ReadFloat(path, "referenceThreatEnergyJ", 0.0);
-        return data.Enabled && !data.UseLegacyFallback && data.InitialVelocity > 0.0 && data.BulletMassKG > 0.0 && data.CaliberMM > 0.0;
+        return data.Enabled && data.InitialVelocity > 0.0 && data.BulletMassKG > 0.0 && data.CaliberMM > 0.0;
     }
 
     protected static string ReadString(string parentPath, string field, string fallback)
