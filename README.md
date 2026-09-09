@@ -25,7 +25,7 @@ An armor profile's optional `Tiles` array holds each equal-area tile's maximum H
 
 The new item supplies its default `tiles[]` config as well, so it works with an existing profile file without rewriting that file. To customize or disable it there, add an explicit `ArPen_TiledPlateCarrierVest` profile. JSON enrollment takes precedence over config enrollment. Modded armor can also supply an `ArPen` config with `tiles[]` and the usual ceramic material/armor fields.
 
-The lab includes the tiled carrier and an editable tile-HP list. It uses a repeatable random sequence shared across velocity bins so appending a graph preserves earlier tile choices. The game samples randomly per hit. Lab stopped-hit H/S represents global damage after the existing transfers: torso local health → health/shock at 1×/1×; head local health → health/shock at 2×/3×. Penetrating wearer damage depends on the incoming DayZ damage result and is not numerically predicted by the lab.
+The lab includes the tiled carrier and an editable tile-HP list. It uses a repeatable random sequence shared across velocity bins so appending a graph preserves earlier tile choices. The game samples randomly per hit. Lab stopped-hit H/S represents global damage after the existing transfers: torso transfers calculated health and shock independently at 1×/1×; head transfers local health at 2× and calculated shock at 3×. Existing local zone factors remain in the calculations; global transfer is a separate step. Blunt health and shock profile multipliers each control their own channel. Penetrating wearer damage depends on the incoming DayZ damage result and is not numerically predicted by the lab.
 
 ## Persistence and verification
 

@@ -47,14 +47,30 @@ assert.equal(ctx.tileCondition([0,1,1,1,1]), .8);
 assert.equal(ctx.tileCondition([0,0,1,1,1]), 0, 'Round the failure count upward');
 // A fifth shot through whole destroyed armor must be native-result passthrough.
 assert.equal(ctx.one(ammo, plate, 940, {hp: 0}, 0, 'Torso').penetrated, true);
-// Transfers, not independently editable shock controls, determine torso/head shock.
+// Shock tuning must remain independent of health through global transfer.
 for (const zone of ['Torso', 'Head']) {
   const a = ctx.one(ammo, plate, 550, {hp: 800}, 0, zone);
-  const b = ctx.one({...ammo, bhs: 999, bts: 999}, plate, 550, {hp: 800}, 0, zone);
+  const b = ctx.one({...ammo, bhs: .9, bts: .7}, plate, 550, {hp: 800}, 0, zone);
+  const c = ctx.one({...ammo, bhh: 0, bth: 0}, plate, 550, {hp: 800}, 0, zone);
+  const d = ctx.one({...ammo, bhs: 0, bts: 0}, plate, 550, {hp: 800}, 0, zone);
   assert.equal(a.penetrated, false);
-  near(a.playerShockDamage, b.playerShockDamage);
-  near(a.playerShockDamage, a.playerHealthDamage * (zone === 'Head' ? 1.5 : 1));
+  assert.ok(a.playerShockDamage > 0);
+  near(b.playerHealthDamage, a.playerHealthDamage);
+  near(b.playerShockDamage, a.playerShockDamage * 2);
+  near(c.playerHealthDamage, 0);
+  near(c.playerShockDamage, a.playerShockDamage);
+  near(d.playerShockDamage, 0);
+  near(d.playerHealthDamage, a.playerHealthDamage);
+  const calculatedShock = a.playerBaseDamage * a.bluntSeverity * (zone === 'Head' ? 3 * .45 : .35);
+  near(a.playerShockDamage, calculatedShock * (zone === 'Head' ? 3 : 1));
 }
+// Full severity at initial velocity: preserve local head H=18, S=60.75,
+// then transfer independently to global H=36, S=182.25.
+const full = ctx.one(ammo, {...plate, k: 15000, resistance: 1}, 940, {hp: 800}, 0, 'Head');
+assert.equal(full.penetrated, false);
+near(full.bluntSeverity, 1);
+near(full.playerHealthDamage, 36);
+near(full.playerShockDamage, 182.25);
 const shot3 = ctx.series(ammo, tiled, 3, 0, 'Torso');
 const repeat3 = ctx.series(ammo, tiled, 3, 0, 'Torso');
 assert.equal(JSON.stringify(shot3), JSON.stringify(repeat3));
@@ -89,3 +105,19 @@ const monoA = ctx.one(strong, {...plate, tileDamageMultiplier: 3}, 940, {hp: 800
 const monoB = ctx.one(strong, plate, 940, {hp: 800}, 0, 'Torso');
 near(monoA.damage, monoB.damage);
 console.log('3x tile regressions passed: 100→25→0 health, sacrificial stop, next-hit hole, penetrating destruction, monolithic isolation.');
+
+// Execute the production transfer block with independent channel inputs.
+// Both penetrating and stopped packets reach this same block.
+const player = fs.readFileSync('Scripts/4_World/ArPen/PlayerBase.c', 'utf8');
+const transferStart = player.indexOf('        if (dmgZone == "Torso")');
+const transferEnd = player.indexOf('\n        }', player.indexOf('else if (dmgZone == "Head"', transferStart)) + 10;
+const transfer = player.slice(transferStart, transferEnd);
+for (const dmgZone of ['Torso', 'Head', 'Brain']) {
+  for (const [health, shock] of [[20,20], [20,7], [0,20], [20,0]]) {
+    const context = {dmgZone, localDamage: {HealthLoss: health}, customShockDamage: shock, packet: {}};
+    vm.runInNewContext(transfer, context);
+    near(context.packet.GlobalHealthLoss, health * (dmgZone === 'Torso' ? 1 : 2));
+    near(context.packet.GlobalShockLoss, shock * (dmgZone === 'Torso' ? 1 : 3));
+  }
+}
+console.log('Production transfer regressions passed: independent health/shock, head/brain/torso, zero channels.');

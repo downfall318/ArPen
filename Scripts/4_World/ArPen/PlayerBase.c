@@ -282,18 +282,18 @@ modded class PlayerBase
             packet.GlobalShockLoss = customShockDamage;
         }
 
-        // These rates use the final local HEALTH damage amount for both pools.
-        // Replace the old shock result for these zones; do not add a second hit.
+        // Transfer each calculated channel independently; preserve local health damage.
+        // The head shock zone factor above is local; this is the global transfer.
         if (dmgZone == "Torso")
         {
             packet.GlobalHealthLoss = localDamage.HealthLoss;
-            packet.GlobalShockLoss = localDamage.HealthLoss;
+            packet.GlobalShockLoss = customShockDamage;
         }
         else if (dmgZone == "Head" || dmgZone == "Brain")
         {
             // Only firearm hits reach the custom path above.
             packet.GlobalHealthLoss = localDamage.HealthLoss * 2.0;
-            packet.GlobalShockLoss = localDamage.HealthLoss * 3.0;
+            packet.GlobalShockLoss = customShockDamage * 3.0;
         }
 
         if (testHit)
