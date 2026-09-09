@@ -232,16 +232,17 @@ modded class PlayerBase
             packet.GlobalShockLoss = customShockDamage;
         }
 
-        // Transfer rates use the final local HEALTH damage amount.
+        // Transfer each calculated channel independently; preserve local health damage.
+        // The head shock zone factor above is local; this is the global transfer.
         if (dmgZone == "Torso")
         {
             packet.GlobalHealthLoss = localDamage.HealthLoss;
-            packet.GlobalShockLoss = localDamage.HealthLoss;
+            packet.GlobalShockLoss = customShockDamage;
         }
         else if (dmgZone == "Head" || dmgZone == "Brain")
         {
             packet.GlobalHealthLoss = localDamage.HealthLoss * 2.0;
-            packet.GlobalShockLoss = localDamage.HealthLoss * 3.0;
+            packet.GlobalShockLoss = customShockDamage * 3.0;
         }
 
         GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(ArPen_ApplyCustomDamage, 0, false, packet);

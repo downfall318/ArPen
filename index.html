@@ -171,7 +171,7 @@ details summary { cursor:pointer; font-weight:500; margin-bottom:8px; }
       <div class="control"><label class="form-label" for="ap-blunt-head-shock">Stopped head shock ×</label><input class="form-control" id="ap-blunt-head-shock" type="number" min="0" step="0.01"></div>
       <div class="control"><label class="form-label" for="ap-blunt-torso-shock">Stopped torso shock ×</label><input class="form-control" id="ap-blunt-torso-shock" type="number" min="0" step="0.01"></div>
     </div>
-    <div class="hint">Velocity and base damage are vanilla cartridge inputs. Mass, calibre, penetration multiplier, threat metadata, armor physics, and stopped-hit multipliers are ArPen data. Stopped-hit H/S shows global health and shock after the configured game transfer: torso local health transfers 1× to both; head local health transfers 2× to health and 3× to shock. Head/torso shock inputs do not override these fixed transfers. Penetrating H/S depends on the incoming DayZ damage result and is not predicted here.</div>
+    <div class="hint">Velocity and base damage are vanilla cartridge inputs. Mass, calibre, penetration multiplier, threat metadata, armor physics, and stopped-hit multipliers are ArPen data. Stopped-hit H/S shows global health and shock after the configured game transfer: torso transfers calculated health and shock independently at 1× each; head transfers local health at 2× and calculated shock at 3×. Each channel retains its own stopped-hit multiplier. Penetrating H/S depends on the incoming DayZ damage result and is not predicted here.</div>
   </div>
   <div class="card">
     <details>
@@ -196,7 +196,7 @@ details summary { cursor:pointer; font-weight:500; margin-bottom:8px; }
         </div>
       </div>
       <div style="margin-top:10px"><button class="btn btn-primary" id="enroll-ammo" type="button">Enroll cartridge</button></div>
-      <div class="hint">Enrollment is session-local. Head/torso stopped hits use health multipliers and fixed global transfers. Body shock settings apply to limb calculations. These settings do not alter armor damage.</div>
+      <div class="hint">Enrollment is session-local. Stopped hits use independent health and shock multipliers, followed by global transfers (torso 1×/1×; head 2×/3×). These settings do not alter armor damage.</div>
     </details>
     <details style="margin-top:12px" open>
       <summary>Enroll new armor (all fields)</summary>
@@ -494,7 +494,8 @@ details summary { cursor:pointer; font-weight:500; margin-bottom:8px; }
       const stoppedShockMultiplier = zone === 'Head' ? (a.bhs ?? .35) : (a.bts ?? .35);
       const localHealthDamage = playerBaseDamage * zoneMult.health * stoppedHealthMultiplier * bluntSeverity;
       playerHealthDamage = zone === 'Head' ? localHealthDamage * 2 : zone === 'Torso' ? localHealthDamage : 0;
-      playerShockDamage = zone === 'Head' ? localHealthDamage * 3 : zone === 'Torso' ? localHealthDamage : playerBaseDamage * zoneMult.shock * stoppedShockMultiplier * bluntSeverity;
+      const calculatedShockDamage = playerBaseDamage * zoneMult.shock * stoppedShockMultiplier * bluntSeverity;
+      playerShockDamage = calculatedShockDamage * (zone === 'Head' ? 3 : 1);
     }
     let damage = 0;
     let channelVolume = 0, dentVolume = 0, panelVolume = 0, volumeLoss = 0;
@@ -800,7 +801,7 @@ details summary { cursor:pointer; font-weight:500; margin-bottom:8px; }
           (d.penetrated
             ? `<strong>Player (${zone}): Health/Shock = incoming DayZ result + game transfer</strong><br>`
             : `<strong>Player (${zone}, global): H=${d.playerHealthDamage.toFixed(2)} · S=${d.playerShockDamage.toFixed(2)}</strong><br>`) +
-          (!d.penetrated ? `Stopped blunt base=${(d.playerBaseDamage||0).toFixed(2)} · severity=${(d.bluntSeverity||0).toFixed(3)} (energy=${(d.energyBluntSeverity||0).toFixed(3)}, depth=${(d.depthBluntSeverity||0).toFixed(3)}) · H×${(zone === 'Head' ? a.bhh : a.bth).toFixed(2)} · ${zone === 'Head' ? 'transfer H×2 / S×3' : zone === 'Torso' ? 'transfer H×1 / S×1' : 'body S×' + a.bts.toFixed(2)}<br>` : '') +
+          (!d.penetrated ? `Stopped blunt base=${(d.playerBaseDamage||0).toFixed(2)} · severity=${(d.bluntSeverity||0).toFixed(3)} (energy=${(d.energyBluntSeverity||0).toFixed(3)}, depth=${(d.depthBluntSeverity||0).toFixed(3)}) · H×${(zone === 'Head' ? a.bhh : a.bth).toFixed(2)} · S×${(zone === 'Head' ? a.bhs : a.bts).toFixed(2)} · ${zone === 'Head' ? 'transfer H×2 / S×3' : zone === 'Torso' ? 'transfer H×1 / S×1' : 'body S×' + a.bts.toFixed(2)}<br>` : '') +
           `k<sub>eff</sub>=${(d.keff||0).toFixed(0)} · D=${(d.D||0).toFixed(3)} · S<sub>e</sub>=${(d.S_energy||0).toFixed(3)} · S=${(d.S||0).toFixed(3)}` +
           (p.type === 'Steel' && d.panelVolume > 0 ? `<br>channel=${(d.channelVolume||0).toFixed(1)} mm³ · dent=${(d.dentVolume||0).toFixed(1)} mm³ · cumulative compromised=${(d.metalLoss||0).toFixed(1)} / ${(d.panelVolume*0.25).toFixed(1)} mm³` : '');
         tip.style.opacity = 1;
