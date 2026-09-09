@@ -62,15 +62,15 @@ for (const zone of ['Torso', 'Head']) {
   near(d.playerShockDamage, 0);
   near(d.playerHealthDamage, a.playerHealthDamage);
   const calculatedShock = a.playerBaseDamage * a.bluntSeverity * (zone === 'Head' ? 3 * .45 : .35);
-  near(a.playerShockDamage, calculatedShock * (zone === 'Head' ? 3 : 1));
+  near(a.playerShockDamage, calculatedShock);
 }
 // Full severity at initial velocity: preserve local head H=18, S=60.75,
-// then transfer independently to global H=36, S=182.25.
+// then transfer independently to global H=36, S=60.75.
 const full = ctx.one(ammo, {...plate, k: 15000, resistance: 1}, 940, {hp: 800}, 0, 'Head');
 assert.equal(full.penetrated, false);
 near(full.bluntSeverity, 1);
 near(full.playerHealthDamage, 36);
-near(full.playerShockDamage, 182.25);
+near(full.playerShockDamage, 60.75);
 const shot3 = ctx.series(ammo, tiled, 3, 0, 'Torso');
 const repeat3 = ctx.series(ammo, tiled, 3, 0, 'Torso');
 assert.equal(JSON.stringify(shot3), JSON.stringify(repeat3));
@@ -117,7 +117,20 @@ for (const dmgZone of ['Torso', 'Head', 'Brain']) {
     const context = {dmgZone, localDamage: {HealthLoss: health}, customShockDamage: shock, packet: {}};
     vm.runInNewContext(transfer, context);
     near(context.packet.GlobalHealthLoss, health * (dmgZone === 'Torso' ? 1 : 2));
-    near(context.packet.GlobalShockLoss, shock * (dmgZone === 'Torso' ? 1 : 3));
+    near(context.packet.GlobalShockLoss, shock);
   }
 }
 console.log('Production transfer regressions passed: independent health/shock, head/brain/torso, zero channels.');
+
+// Run the actual stopped shock expression and transfer together: catch a
+// duplicate head factor even when the lab and transfer tests pass separately.
+const shockExpression = player.match(/customShockDamage = (stoppedBaseDamage[^;]+);/)[1];
+for (const dmgZone of ['Head', 'Brain', 'Torso']) {
+  const head = dmgZone !== 'Torso';
+  const context = {dmgZone, stoppedBaseDamage: 45,
+    shockZoneMultiplier: head ? 3 : 1, bluntShockMultiplier: head ? .45 : .35,
+    bluntSeverity: 1, localDamage: {HealthLoss: head ? 18 : 4.5}, packet: {}};
+  vm.runInNewContext('customShockDamage = ' + shockExpression + ';' + transfer, context);
+  near(context.packet.GlobalShockLoss, head ? 60.75 : 15.75);
+}
+console.log('Stopped shock integration passed: head/brain 60.75, torso 15.75.');
